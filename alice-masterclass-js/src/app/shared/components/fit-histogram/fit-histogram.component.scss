@@ -1,0 +1,57 @@
+figure {
+  position: relative;
+  margin: 0;
+}
+
+:host ::ng-deep svg {
+  #bars rect {
+    fill: var(--bar-color);
+  }
+
+  #yAxisLabel, #xAxisLabel {
+    font-size: 0.8em;
+  }
+
+  .em {
+    font-style: italic;
+  }
+
+  #signal, #background {
+    fill-opacity: 0;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+
+  #signal {
+    stroke: var(--signal-color);
+  }
+
+  #background {
+    stroke: var(--background-color);
+  }
+
+  .hidden {
+    visibility: hidden;
+  }
+}
+
+.no-interaction {
+  pointer-events: none;
+}
+
+#title {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+}
+
+#yAxisLabel {
+  writing-mode: vertical-lr;
+  transform: rotate(-180deg);
+}
+
+#xAxisLabel, #yAxisLabel {
+  text-align: end;
+}

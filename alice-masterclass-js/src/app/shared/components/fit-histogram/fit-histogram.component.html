@@ -1,0 +1,28 @@
+<div fxFill fxLayout="row">
+  <figure fxFlex="grow" fxLayout="column">
+    <div id="title" class="no-interaction"><ng-content select="[title]"></ng-content></div>
+    <svg #svg attr.viewBox="0 0 {{SVG.W}} {{SVG.H}}" preserveAspectRatio="xMidYMid meet">
+      <g id="yAxisLabel" attr.transform="translate({{MARGIN.LEFT_YLABEL}}, {{MARGIN.TOP}}) rotate(-90)" text-anchor="end">
+        <ng-content select="[yAxisLabel]"></ng-content>
+      </g>
+      <g id="contentArea" attr.transform="translate({{CONTENT_AREA.X}}, {{CONTENT_AREA.Y}})">
+        <defs>
+          <clipPath id="clip">
+            <rect x="0" y="0" attr.width="{{CONTENT_AREA.W}}" attr.height="{{CONTENT_AREA.H}}"></rect>
+          </clipPath>
+        </defs>
+        <g id="yAxis" #yAxis></g>
+        <g id="xAxis" #xAxis attr.transform="translate(0, {{CONTENT_AREA.H}})"></g>
+        <g id="mainArea" clip-path="url(#clip)">
+          <g id="bars" #bars></g>
+          <path [class.hidden]="!backgroundShown" id="background" #background></path>
+          <path [class.hidden]="!signalShown" id="signal" #signal></path>
+          <g id="brush" #brush></g>
+        </g>
+      </g>
+      <g id="xAxisLabel" attr.transform="translate({{CONTENT_AREA.X + CONTENT_AREA.W}}, {{SVG.H - MARGIN.BOTTOM_TEXT}})" text-anchor="end">
+        <ng-content select="[xAxisLabel]"></ng-content>
+      </g>
+    </svg>
+  </figure>
+</div>

@@ -1,0 +1,32 @@
+<mat-card appearance="outlined">
+  <mat-card-title class="title">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.TITLE' | translate }}</mat-card-title>
+  <mat-card-content>
+    <form [formGroup]="histogramSelectorForm" (ngSubmit)="onSubmit()"
+      fxLayout="row" fxLayout.xs="column"
+      fxLayoutAlign="start center" fxLayoutAlign.xs="center stretch"
+      fxLayoutGap="10px"
+      >
+      <div fxLayout="row" fxLayout.xs="column" fxLayoutAlign.xs="start stretch" fxLayoutGap="10px">
+        <mat-form-field>
+          <mat-label>{{ 'STRANGENESS.HISTOGRAM_SELECTOR.SELECT_PARTICLE' | translate }}</mat-label>
+          <mat-select formControlName="type">
+            @for (type of particileTypes; track type) {
+              <mat-option [value]="type"> {{ 'STRANGENESS.HISTOGRAM_SELECTOR.' + type | uppercase | translate }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>{{ 'STRANGENESS.HISTOGRAM_SELECTOR.SELECT_COLLISION' | translate }}</mat-label>
+          <mat-select formControlName="collisionCentrality">
+            @for (option of collisionCentralityOptions; track option; let i = $index) {
+              <mat-option [value]="i">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.' + option.collision | uppercase | translate }} @if (option.centrality) {
+                <span>{{ 'STRANGENESS.HISTOGRAM_SELECTOR.' + option.centrality | translate }}</span>
+              }</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <button [disabled]="histogramSelectorForm.invalid" mat-raised-button type="submit" color="primary">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.OPEN_HISTOGRAM' | translate }}</button>
+    </form>
+  </mat-card-content>
+</mat-card>

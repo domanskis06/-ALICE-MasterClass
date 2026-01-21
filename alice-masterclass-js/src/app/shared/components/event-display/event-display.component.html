@@ -1,0 +1,88 @@
+<mat-card appearance="outlined" fxLayout="column">
+  <mat-card-title fxLayout="row" fxLayoutAlign="space-between start">
+    <span class="title">
+      <ng-content></ng-content>
+    </span>
+    <button mat-icon-button aria-label="Options for Event Display" (click)="drawer.toggle()">
+      <mat-icon>filter_list</mat-icon>
+    </button>
+  </mat-card-title>
+  <mat-card-content>
+    <mat-drawer-container>
+      <mat-drawer #drawer class="sidenav" mode="side" position="end">
+        <div class="options">
+          <h4>{{ 'EVENT_DISPLAY.VISIBILITY' | translate }}</h4>
+          <div fxLayout="column" fxLayoutGap="8px">
+            <mat-slide-toggle [(ngModel)]="sideViewsShown">{{ 'EVENT_DISPLAY.SIDE_VIEWS' | translate }}</mat-slide-toggle>
+            <mat-slide-toggle [(ngModel)]="detectorShown">{{ 'EVENT_DISPLAY.DETECTOR' | translate }}</mat-slide-toggle>
+            @if (hasClusters) {
+              <mat-slide-toggle [(ngModel)]="clustersShown">{{ 'EVENT_DISPLAY.CLUSTERS' | translate }}</mat-slide-toggle>
+            }
+            <mat-slide-toggle [(ngModel)]="axesShown">{{ 'EVENT_DISPLAY.AXES' | translate }}</mat-slide-toggle>
+            <mat-slide-toggle [(ngModel)]="tracksShown">{{ 'EVENT_DISPLAY.TRACKS' | translate }}</mat-slide-toggle>
+            <mat-slide-toggle [(ngModel)]="decaysShown">{{ 'EVENT_DISPLAY.DECAYS' | translate }}</mat-slide-toggle>
+          </div>
+          @if (hasClusters) {
+            <h4>{{ 'EVENT_DISPLAY.CLUSTER_SIZE' | translate }}</h4>
+            <mat-radio-group [(ngModel)]="clusterSize" fxLayout="row" fxLayoutAlign="space-around start">
+              <mat-radio-button [value]="0.1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
+              <mat-radio-button [value]="0.25">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
+              <mat-radio-button [value]="0.5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
+            </mat-radio-group>
+          }
+          <h4>{{ 'EVENT_DISPLAY.TRACK_WIDTH' | translate }}</h4>
+          <mat-radio-group [(ngModel)]="trackWidth" fxLayout="row" fxLayoutAlign="space-around start">
+            <mat-radio-button [value]="1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
+            <mat-radio-button [value]="2">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
+            <mat-radio-button [value]="5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
+          </mat-radio-group>
+        </div>
+      </mat-drawer>
+      <mat-drawer-content>
+        <div id="content" [class.disabled]="loading" fxLayout="row" fxLayoutAlign="center stretch">
+          <button [disabled]="previousEventButtonDisabled" fxFlexAlign="center" (click)="onPreviousEventClick()" mat-icon-button aria-label="Previous Event button">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div id="render-area" fxFlex="1 0.5 calc(100%-100px)">
+            <canvas #canvas (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)"></canvas>
+            <div id="view0" [class.landscape]="landscape" [class.noside]="!sideViewsShown">{{ 'EVENT_DISPLAY.VIEW_3D' | translate }}</div>
+            @if (sideViewsShown) {
+              <div id="view1" [class.landscape]="landscape">{{ 'EVENT_DISPLAY.VIEW_1' | translate }}</div>
+            }
+            @if (sideViewsShown) {
+              <div id="view2" [class.landscape]="landscape">{{ 'EVENT_DISPLAY.VIEW_2' | translate }}</div>
+            }
+            @if (sideViewsShown) {
+              <div id="scales1" [class.landscape]="landscape">
+                <!-- <svg attr.viewBox="0 0 {{SVG.W}} {{SVG.H}}" preserveAspectRatio="xMinYMin meet">
+                <g attr.transform="translate({{MARGIN.LEFT}}, {{MARGIN.TOP}})">
+                  <g id="yAxisLeft1"></g>
+                  <g id="yAxisRight1"></g>
+                  <g id="xAxisLeft1" attr.transform="translate(0, {{CONTENT_AREA.H}})"></g>
+                  <g id="zAxisDown1" #zAxisDown1 attr.transform="translate(0, {{CONTENT_AREA.H}})"></g>
+                </g>
+              </svg> -->
+            </div>
+          }
+          <!-- <div id="scales2" [class.landscape]="landscape" *ngIf="sideViewsShown"> -->
+          <!-- <svg #svg2 attr.viewBoWx="0 0 {{SVG.W}} {{SVG.H}}" preserveAspectRatio="xMinYMin meet">
+          <g id="contentArea" attr.transform="translate({{MARGIN.LEFT}}, {{MARGIN.TOP}})">
+            <g id="yAxisLeft2"></g>
+            <g id="yAxisRight2"></g>
+            <g id="xAxisLeft2" attr.transform="translate(0, {{CONTENT_AREA.H}})"></g>
+            <g id="xAxisRight2" attr.transform="translate(0, {{CONTENT_AREA.H}})"></g>
+          </g>
+        </svg> -->
+      <!-- </div> -->
+    </div>
+    <button [disabled]="nextEventButtonDisabled" fxFlexAlign="center" (click)="onNextEventClick()" mat-icon-button aria-label="Next Event button">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+  @if (loading) {
+    <div id="spinner" fxLayout="column" fxLayoutAlign="center center"><mat-spinner></mat-spinner></div>
+  }
+</mat-drawer-content>
+</mat-drawer-container>
+</mat-card-content>
+</mat-card>

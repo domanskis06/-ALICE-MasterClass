@@ -1,0 +1,23 @@
+.sidenav {
+  width: 200px;
+}
+
+.container {
+  padding: 10px;
+}
+
+.options {
+  * {
+    padding: 0 16px;
+  }
+}
+
+app-event-display {
+  height: 50vh;
+}
+
+#done {
+  line-height: 40px;
+  vertical-align: sub;
+  margin-left: 0.2em;
+}
