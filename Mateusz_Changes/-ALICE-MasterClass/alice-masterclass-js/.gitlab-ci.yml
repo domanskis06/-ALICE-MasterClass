@@ -1,0 +1,211 @@
+stages:
+  - convert
+  - test
+  - build_apps
+  - build_website
+  - dockerize
+  - openshift_redeploy
+
+convert_strangeness_events:
+  stage: convert
+  image: rootproject/root:6.22.08-ubuntu20.04
+  script:
+    - root -b -q "./data/strangeness/part1/convert_events.C(\"./data/strangeness/part1/events\", \"./src/assets/exercises/strangeness/part1\")"
+  artifacts:
+    paths:
+      - src/assets/exercises/strangeness/part1
+
+convert_strangeness_invariant:
+  stage: convert
+  image: python:3.6.13-alpine3.13
+  script:
+    - python3 ./data/strangeness/part2/convert.py ./data/strangeness/part2/ ./src/assets/exercises/strangeness/part2
+  artifacts:
+    paths:
+      - src/assets/exercises/strangeness/part2
+
+.convert_strangeness_invariant_hints:
+  stage: convert
+  when: manual
+  image: rootproject/root:6.22.08-ubuntu20.04
+  script:
+    - root -b -q "./data/strangeness/part2/generate_hints.C(\"./data/strangeness/part2/InvariantMass.root\", \"./src/assets/exercises/strangeness/part2\")"
+  artifacts:
+    paths:
+      - src/assets/exercises/strangeness/part2
+
+# build_electron_app_windows:
+#   stage: build_apps
+#   tags:
+#     - win10
+#   only:
+#     - tags
+#   except:
+#     - branches
+#   needs:
+#     - job: convert_strangeness_events
+#       artifacts: true
+#     - job: convert_strangeness_invariant
+#       artifacts: true
+#   script:
+#     - npm ci
+#     - $Env:VERSION=$Env:CI_COMMIT_TAG
+#     - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
+#     - mv package_version.json package.json
+#     - npm run electron:build_win
+#     - $Env:NAME = node -p "require('./electron-builder.json').productName"
+#     - mkdir release
+#     - cp ./release_files/"$Env:NAME"_* ./release
+#   artifacts:
+#     paths:
+#       - release/
+
+unit_tests:
+  stage: test
+  needs:
+  - job: convert_strangeness_events
+    artifacts: true
+  - job: convert_strangeness_invariant
+    artifacts: true
+  image: timbru31/node-chrome:fermium
+  before_script:
+    - npm install -g @angular/cli@12.0.2
+    - npm install -g npm@8.5.0
+  script:
+    - npm ci
+    - npm run build
+    - npm run test:ci
+
+build_electron_app_windows:
+  stage: build_apps
+  only:
+    - tags
+  except:
+    - branches
+  needs:
+    - job: convert_strangeness_events
+      artifacts: true
+    - job: convert_strangeness_invariant
+      artifacts: true
+  image: electronuserland/builder:wine
+  before_script:
+    - npm install -g @angular/cli@12.0.2
+    - npm install -g npm@8.5.0
+  script:
+    - npm ci
+    - export VERSION=$CI_COMMIT_TAG
+    - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
+    - mv package_version.json package.json
+    - npm run electron:build_win
+    - export NAME=$(node -p "require('./electron-builder.json').productName")
+    - mkdir release
+    - cp ./release_files/"$NAME"_* ./release
+  artifacts:
+    paths:
+      - release/
+
+build_electron_app_linux:
+  stage: build_apps
+  only:
+    - tags
+  except:
+    - branches
+  needs:
+    - job: convert_strangeness_events
+      artifacts: true
+    - job: convert_strangeness_invariant
+      artifacts: true
+  image: electronuserland/builder:wine
+  before_script:
+    - npm install -g @angular/cli@12.0.2
+    - npm install -g npm@8.5.0
+  script:
+    - npm ci
+    - export VERSION=$CI_COMMIT_TAG
+    - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
+    - mv package_version.json package.json
+    - npm run electron:build_lin
+    - export NAME=$(node -p "require('./electron-builder.json').productName")
+    - mkdir release
+    - cp ./release_files/"$NAME"_* ./release
+  artifacts:
+    paths:
+      - release/
+
+build_website:
+  stage: build_website
+  only:
+    - tags
+  except:
+    - branches
+  needs:
+    - job: build_electron_app_windows
+      artifacts: true
+    - job: build_electron_app_linux
+      artifacts: true
+    - job: convert_strangeness_events
+      artifacts: true
+    - job: convert_strangeness_invariant
+      artifacts: true
+  image: electronuserland/builder:wine
+  before_script:
+    - npm install -g @angular/cli@12.0.2
+    - npm install -g npm@8.5.0
+  script:
+    - npm ci
+    - export VERSION=$CI_COMMIT_TAG
+    - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
+    - mv package_version.json package.json
+    - cp ./release/* ./src/assets/apps/
+    - npm run build:prod
+    - cp .htaccess ./dist/
+  artifacts:
+    paths:
+      - dist/
+
+build_docker:
+  stage: dockerize
+  only:
+    - tags
+  except:
+    - branches
+  needs:
+    - job: build_website
+      artifacts: true
+  tags: 
+    - docker-privileged
+  image: docker:19.03.1
+  services:
+    - docker:19.03.1-dind
+  variables:
+      DOCKER_TLS_CERTDIR: "/certs"
+      CONTAINER_VERSION_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+      CONTAINER_LATEST_IMAGE: $CI_REGISTRY_IMAGE:latest
+  before_script:
+   - docker info
+   - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+   - docker build --pull -f Dockerfile -t $CONTAINER_VERSION_IMAGE .
+   - docker push $CONTAINER_VERSION_IMAGE
+   - docker tag $CONTAINER_VERSION_IMAGE $CONTAINER_LATEST_IMAGE
+   - docker push $CONTAINER_LATEST_IMAGE
+
+update_imagestream_and_redeploy:
+  stage: openshift_redeploy
+  only:
+    - tags
+  except:
+    - branches
+  needs:
+    - job: build_docker
+      artifacts: false
+  image: gitlab-registry.cern.ch/paas-tools/openshift-client:latest
+  environment:
+    name: production
+    url: https://masterclass-test-alice.web.cern.ch/
+  script:
+  - "oc import-image $APP_NAME --all --server=$SERVER --namespace $NAMESPACE --token=$IMAGE_IMPORT_TOKEN"
+  - "sleep 30s && oc rollout status dc/$APP_NAME --server=$SERVER --namespace $NAMESPACE --token=$IMAGE_IMPORT_TOKEN"
+  variables:
+    SERVER: https://api.paas.okd.cern.ch
+    APP_NAME: alice-masterclass

@@ -1,0 +1,31 @@
+{
+  "GENERAL": {
+    "MENU": "Menü",
+    "ALICE_MASTERCLASS": "ALICE MasterClass",
+    "PASSWORD": "Kennwort"
+  },
+  "HOME": {
+    "HOME": "Home",
+    "HOME_MENU": "Home",
+    "TITLE": "Herzlich Willkommen in der ALICE MasterClass!",
+    "P1": "Die ALICE Collaboration hat einen speziellen Detektor gebaut, um das einzigartige physikalische Potenzial von Kern-Kern-Kollisionen bei LHC-Energienenergien auszuschöpfen. Unser Ziel ist es, die Physik stark wechselwirkender Materie bei den höchsten bisher im Labor erreichten Energiedichten zu untersuchen. In einem solchen Zustand bildet sich eine extreme Phase der Materie - das sogenannte Quark-Gluon-Plasma.",
+    "P2": "Es wird angenommen, dass sich unser Universum in den ersten Millionstelsekunden nach dem Urknall in einem so ursprünglichen Zustand befunden hat. Die Eigenschaften einer solchen Phase sind Schlüsselthemen für Quantum Chromo Dynamics, das Verständnis von Confinement-Deconfinement und chiralen Phasenübergängen.",
+    "P3": "Zu diesem Zweck führen wir eine umfassende Untersuchung der Hadronen, Elektronen, Myonen und Photonen durch, die bei Kollisionen schwerer Kerne entstehen. ALICE untersucht auch Protonen-Protonen- und Protonen-Kern-Kollisionen sowohl als Vergleich mit Kern-Kern-Kollisionen als auch für sich.",
+    "DOWNLOAD": "Wenn Sie möchten, können Sie eine Desktop-Version der MasterClass herunterladen und verwenden:"
+  },
+  "ABOUT": {
+    "ABOUT_MENU": "Über ALICE"
+  },
+  "PASSWORD": {
+    "PASSWORD_MENU": "Kennwort",
+    "P1": "Bitte geben Sie Ihre Schülernummer und das Sitzungskennwort ein (beide sollten Ihnen von Ihrem Vorgesetzten mitgeteilt werden).",
+    "P2": "Sie können dies überspringen, indem Sie auf Abbrechen klicken, aber Sie können Ihre Ergebnisse nicht teilen!",
+    "P3": "Sie können später zu diesem Fenster zurückkehren, indem Sie im Menü die Option Kennwort auswählen.",
+    "TEXT_ERROR": "Das eingegebene Kennwort ist falsch.",
+    "STUDENT_NUMBER": "Schülernummer",
+    "SESSION_PASSWORD": "Sitzungskennwort",
+    "BUTTON_PROCEED": "Vorgehen",
+    "BUTTON_CANCEL": "Abbrechen",
+    "NO_TOKEN_TOOLTIP": "Geben Sie zum Aktivieren des Daten-Uploads das Kennwort mit der Option Kennwort im Menü ein."
+  }
+}

@@ -1,0 +1,30 @@
+.sidenav-container {
+  height: 100%;
+}
+
+.sidenav {
+  width: 200px;
+}
+
+.sidenav .mat-toolbar {
+  background: inherit;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+#buttons {
+  margin-left: auto;
+
+  button {
+    vertical-align: middle;
+    font-size: 1em;
+
+    span {
+      margin-left: 0.3em;
+    }
+  }
+}

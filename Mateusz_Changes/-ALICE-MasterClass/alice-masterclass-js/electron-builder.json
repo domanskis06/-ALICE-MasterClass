@@ -1,0 +1,44 @@
+{
+  "productName": "ALICE_MasterClass",
+  "artifactName": "${productName}_${version}.${ext}",
+  "directories": {
+    "output": "release_files/"
+  },
+  "files": [
+    "**/*",
+    "!**/*.ts",
+    "!.github",
+    "!.vscode",
+    "!.code-workspace",
+    "!.npmrc",
+    "!*.md",
+    "!package.json",
+    "!package-lock.json",
+    "!src/",
+    "!e2e/",
+    "!hooks/",
+    "!_config.yml",
+    "!angular.json",
+    "!tsconfig*.json",
+    "!tslint.json",
+    "!.eslintrc.json",
+    "!karma.conf.js",
+    "!angular.webpack.js",
+    "!*.map"
+  ],
+  "win": {
+    "icon": "dist/assets/icons/icon.ico",
+    "target": ["portable"]
+  },
+  "portable": {
+    "splashImage": "dist/assets/icons/alice.bmp"
+  },
+  "mac": {
+    "icon": "dist/assets/icons/icon.png",
+    "target": ["dmg"]
+  },
+  "linux": {
+    "icon": "dist/assets/icons/icon.png",
+    "target": ["AppImage"]
+  }
+}

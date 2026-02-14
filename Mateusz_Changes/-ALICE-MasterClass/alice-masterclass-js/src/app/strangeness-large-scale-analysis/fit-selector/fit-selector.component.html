@@ -1,0 +1,15 @@
+<mat-card appearance="outlined">
+  <mat-card-title class="title">{{ 'STRANGENESS.FIT_SELECTOR.TITLE' | translate }}</mat-card-title>
+  <mat-card-content>
+    <div fxLayout="row" fxLayoutGap="10px">
+      <div fxFlex="grow" fxLayout="column">
+        <ngx-slider [(value)]="signal.start" [(highValue)]="signal.end" [options]="signal.options"></ngx-slider>
+        <ngx-slider [(value)]="background.start" [(highValue)]="background.end" [options]="background.options"></ngx-slider>
+      </div>
+      <div fxFlex="grow" fxLayout="column" fxLayoutGap="10px">
+        <button mat-raised-button color="primary" [disabled]="fitService.data.data.length === 0" (click)="onFitButtonClicked()">{{ 'STRANGENESS.FIT_SELECTOR.FIT' | translate }}</button>
+        <button mat-raised-button color="primary" [disabled]="fitService.result === null" (click)="onAcceptButtonClicked()">{{ 'STRANGENESS.FIT_SELECTOR.ACCEPT' | translate }}</button>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>
