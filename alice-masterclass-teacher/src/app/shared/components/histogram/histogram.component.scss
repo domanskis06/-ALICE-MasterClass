@@ -1,0 +1,39 @@
+figure {
+  position: relative;
+  margin: 0;
+}
+
+:host ::ng-deep svg {
+  #bars rect {
+    fill: var(--bar-color);
+  }
+
+  #yAxisLabel, #xAxisLabel {
+    font-size: 0.8em;
+  }
+
+  .em {
+    font-style: italic;
+  }
+}
+
+.no-interaction {
+  pointer-events: none;
+}
+
+#title {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+}
+
+// #yAxisLabel {
+//   writing-mode: vertical-lr;
+//   transform: rotate(-180deg);
+// }
+
+// #xAxisLabel, #yAxisLabel {
+//   text-align: end;
+// }

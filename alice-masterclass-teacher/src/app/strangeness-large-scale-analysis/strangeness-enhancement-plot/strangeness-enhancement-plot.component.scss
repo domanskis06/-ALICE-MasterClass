@@ -1,0 +1,26 @@
+svg {
+  width: 60vw;
+}
+
+:host ::ng-deep svg {
+  #dots .kaon {
+    fill: var(--kaon-color);
+  }
+
+  #dots .lambda {
+    fill: var(--lambda-color);
+  }
+
+  #dots .antilambda {
+    fill: var(--antilambda-color);
+  }
+
+  #yAxisLabel, #xAxisLabel {
+    font-size: 0.8em;
+  }
+
+  #line {
+    stroke: gray;
+    stroke-dasharray: 5
+  }
+}

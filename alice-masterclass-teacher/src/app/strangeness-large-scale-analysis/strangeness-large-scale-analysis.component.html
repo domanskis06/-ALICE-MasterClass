@@ -1,0 +1,9 @@
+<div fxFlex="grow">
+  <div class="container" fxFlex="grow" fxLayoutGap="10px" fxLayout="column">
+    <app-strangeness-enhancement-plot [xDomain]="[0, 370]" [yDomain]="[0, 2.6]" [data]="plotData">
+      <svg:text xAxisLabel>No. participants</svg:text>
+      <svg:text yAxisLabel>Enhancement</svg:text>
+    </app-strangeness-enhancement-plot>
+    <app-results [resultsData]="entries" (reloadClickedEvent)="onReload()"></app-results>
+  </div>
+</div>
