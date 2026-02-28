@@ -1,14 +1,17 @@
-// ...existing code...
 import { Injectable } from '@angular/core';
+import { Title } from '@angular/platform-browser';
+import { TranslateService } from '@ngx-translate/core';
 import { Observable, of } from 'rxjs';
 import { ApiService, Session, VisualAnalysisResultsEntry, LargeScaleAnalysisResultsEntry } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class MockApiService extends ApiService {
 
-  constructor() {
-    // Nie wywołujemy super z HttpClient; pola ApiService są nadal dostępne
-    super(null as any, null as any, null as any);
+  constructor(
+    translateService: TranslateService,
+    title: Title
+  ) {
+    super(null as any, title, translateService);
   }
 
   authenticate(password: string, studentID: number): Observable<Session> {
@@ -34,4 +37,3 @@ export class MockApiService extends ApiService {
 
   // Jeśli potrzebujesz dodatkowych metod GET, dodaj je tutaj i zwróć of(mock)
 }
-// ...existing code...
