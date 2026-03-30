@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 import { AngularModule } from '../shared/angular.module';
 import { SharedModule } from '../shared/shared.module';
@@ -19,13 +19,14 @@ describe('SelectSessionDialogComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ SelectSessionDialogComponent ],
-      imports: [ HttpClientModule, AngularModule, SharedModule ],
-      providers: [
+    declarations: [SelectSessionDialogComponent],
+    imports: [AngularModule, SharedModule],
+    providers: [
         { provide: MAT_DIALOG_DATA, useValue: {} },
-        { provide: MatDialogRef, useFactory: () => jasmine.createSpyObj('MatDialogRef', ['close']) }
-      ]
-    })
+        { provide: MatDialogRef, useFactory: () => jasmine.createSpyObj('MatDialogRef', ['close']) },
+        provideHttpClient(withInterceptorsFromDi())
+    ]
+})
     .compileComponents();
   });
 
