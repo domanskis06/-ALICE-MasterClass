@@ -44,7 +44,7 @@
             <mat-icon>chevron_left</mat-icon>
           </button>
           <div id="render-area" fxFlex="1 0.5 calc(100%-100px)">
-            <canvas #canvas (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)"></canvas>
+            <canvas #canvas (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)" (pointerleave)="onPointerLeave()"></canvas>
             <div id="view0" [class.landscape]="landscape" [class.noside]="!sideViewsShown">{{ 'EVENT_DISPLAY.VIEW_3D' | translate }}</div>
             @if (sideViewsShown) {
               <div id="view1" [class.landscape]="landscape">{{ 'EVENT_DISPLAY.VIEW_1' | translate }}</div>

@@ -8,3 +8,28 @@
 mat-card {
   box-sizing: border-box;
 }
+
+.calculator-layout {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.calculator-table {
+  flex: 2 1 auto;
+  min-width: 0;
+}
+
+.calculator-form {
+  flex: 1 0 240px;
+  min-width: 240px;
+}
+
+.calculator-divider {
+  align-self: stretch;
+}
+
+mat-form-field {
+  width: 100%;
+  min-width: 220px;
+}
