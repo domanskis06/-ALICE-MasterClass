@@ -46,6 +46,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private negativeTrackMaterial: THREE.Material;
   private bachelorTrackMaterial: THREE.Material;
   private highlightTrackMaterial: THREE.Material;
+  private hoverTrackMaterial: THREE.Material;
   private pointsMaterial: THREE.Material;
 
   @Input()
@@ -62,6 +63,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       (this.negativeTrackMaterial as LineMaterial).linewidth = this.trackDecayWidth;
       (this.bachelorTrackMaterial as LineMaterial).linewidth = this.trackDecayWidth;
       (this.highlightTrackMaterial as LineMaterial).linewidth = this.trackHighlightWidth;
+      (this.hoverTrackMaterial as LineMaterial).linewidth = this.trackWidth * 1.8;
     }
   }
   private _trackWidth: number = 1;
@@ -88,7 +90,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   loading: boolean = false;
   private trackHoverObj: any = null;
-  private trackHoverOrigMaterial: THREE.Material = null;
+  private trackHoverOverlayObj: THREE.Object3D | null = null;
 
   private scene = new THREE.Scene();
   private axes = new THREE.Group();
@@ -128,12 +130,77 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   @Input() previousEventButtonDisabled: boolean = false;
   @Input() nextEventButtonDisabled: boolean = false;
-  @Input() detectorRphi: string | null = null;
-  @Input() detectorRhoz: string | null = null;
+  @Input()
+  get detectorRphi(): string { return this._detectorRphi; }
+  set detectorRphi(detectorRphi: string) {
+    this._detectorRphi = detectorRphi;
+    this.detectorSideViewsRphi.clear();
+    if (!detectorRphi) return;
 
-  // Minimal handlers exposed to template
-  onPointerDown(event: PointerEvent): void { event.preventDefault(); }
-  onPointerMove(event: PointerEvent): void { /* no-op for now */ }
+    this.loading = true;
+    this.loaderSVG.load(detectorRphi, (data: SVGResult) => {
+      const group = this.svgToGroup(data);
+      group.scale.set(0.18, 0.18, 0.18);
+      group.renderOrder = -1;
+      this.detectorSideViewsRphi.add(group);
+      this.loading = false;
+    });
+  }
+  private _detectorRphi: string = null;
+
+  @Input()
+  get detectorRhoz(): string { return this._detectorRhoz; }
+  set detectorRhoz(detectorRhoz: string) {
+    this._detectorRhoz = detectorRhoz;
+    this.detectorSideViewsRhoz.clear();
+    if (!detectorRhoz) return;
+
+    this.loading = true;
+    this.loaderSVG.load(detectorRhoz, (data: SVGResult) => {
+      const group = this.svgToGroup(data);
+      group.rotateY(0.5 * Math.PI);
+      group.scale.set(0.15, 0.15, 0.15);
+      group.renderOrder = -1;
+      this.detectorSideViewsRhoz.add(group);
+      this.loading = false;
+    });
+  }
+  private _detectorRhoz: string = null;
+
+  onPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    const hits = this.findIntersect(event);
+    const hit = hits.find((h) => h.object?.userData && !(h.object as any).userData.__hoverOverlay);
+
+    if (hit?.object?.userData && this.decays.visible) {
+      this.trackClickedEvent.emit(hit.object.userData as Track);
+    }
+  }
+
+  onPointerMove(event: PointerEvent): void {
+    event.preventDefault();
+    const hits = this.findIntersect(event);
+    const hit = hits.find((h) => h.object?.userData && !(h.object as any).userData.__hoverOverlay);
+
+    if (hit?.object?.userData && this.decays.visible) {
+      if (this.trackHoverObj !== hit.object) {
+        this.clearTrackHover();
+        this.trackHoverObj = hit.object;
+        const overlay = this.createHoverOverlay(hit.object as THREE.Object3D);
+        if (overlay && (hit.object as any).parent) {
+          (hit.object as any).parent.add(overlay);
+          this.trackHoverOverlayObj = overlay;
+        }
+      }
+      return;
+    }
+
+    this.clearTrackHover();
+  }
+
+  onPointerLeave(): void {
+    this.clearTrackHover();
+  }
 
   onPreviousEventClick(): void { this.previousEvent.emit(); }
   onNextEventClick(): void { this.nextEvent.emit(); }
@@ -162,8 +229,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  // --- SVG Loader Fix (ShapeBufferGeometry -> ShapeGeometry) ---
-  private addSVGToScene(data: SVGResult, finalize: any) {
+  private svgToGroup(data: SVGResult): THREE.Group {
     const paths = data.paths;
     const group = new THREE.Group();
     for (let path of paths) {
@@ -181,19 +247,32 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         group.add(mesh);
       }
     }
-    finalize(group);
+    return group;
   }
 
   @Input() set sideViewsShown(value: boolean) { this._sideViewsShown = value; this.resize(true); }
   get sideViewsShown(): boolean { return this._sideViewsShown; }
-  private _sideViewsShown: boolean = false;
+  private _sideViewsShown: boolean = true;
 
-  @Input() set axesShown(value: boolean) { this.axes.visible = value; }
-  @Input() set detectorShown(value: boolean) { this.detector.visible = value; this.detectorSideViews.visible = value; }
-  @Input() set tracksShown(value: boolean) { this.tracks.visible = value; }
+  @Input() set axesShown(value: boolean) { this._axesShown = value; this.axes.visible = value; }
+  get axesShown(): boolean { return this._axesShown; }
+  private _axesShown: boolean = true;
+
+  @Input() set detectorShown(value: boolean) { this._detectorShown = value; this.detector.visible = value; this.detectorSideViews.visible = value; }
+  get detectorShown(): boolean { return this._detectorShown; }
+  private _detectorShown: boolean = true;
+
+  @Input() set tracksShown(value: boolean) { this._tracksShown = value; this.tracks.visible = value; }
+  get tracksShown(): boolean { return this._tracksShown; }
+  private _tracksShown: boolean = true;
   @Input() hasClusters: boolean = false;
-  @Input() set clustersShown(value: boolean) { this.clusters.visible = value; }
-  @Input() set decaysShown(value: boolean) { this.decays.visible = value; }
+  @Input() set clustersShown(value: boolean) { this._clustersShown = value; this.clusters.visible = value; }
+  get clustersShown(): boolean { return this._clustersShown; }
+  private _clustersShown: boolean = true;
+
+  @Input() set decaysShown(value: boolean) { this._decaysShown = value; this.decays.visible = value; }
+  get decaysShown(): boolean { return this._decaysShown; }
+  private _decaysShown: boolean = true;
 
   private createLine(track: number[][], material: THREE.Material): THREE.Object3D {
     const points: THREE.Vector3[] = track.map(p =>
@@ -270,6 +349,12 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.negativeTrackMaterial = new LineMaterial({ color: EventDisplayComponent.negativeTrackColor, ...lineParams });
     this.bachelorTrackMaterial = new LineMaterial({ color: EventDisplayComponent.bachelorTrackColor, ...lineParams });
     this.highlightTrackMaterial = new LineMaterial({ color: EventDisplayComponent.highlightColor, ...lineParams });
+    this.hoverTrackMaterial = new LineMaterial({
+      color: 0xffeb3b,
+      transparent: true,
+      opacity: 0.75,
+      ...lineParams
+    });
 
     this.pointsMaterial = new THREE.PointsMaterial({
       color: EventDisplayComponent.clusterColor,
@@ -286,14 +371,24 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const zoomz = this.controls.target.distanceTo(this.controls.object.position);
     this.cameraRphi.zoom = this.cameraRhoz.zoom = 10 / zoomz;
 
-    const materials = [this.trackMaterial, this.postiveTrackMaterial, this.negativeTrackMaterial, this.bachelorTrackMaterial, this.highlightTrackMaterial];
+    const materials = [
+      this.trackMaterial,
+      this.postiveTrackMaterial,
+      this.negativeTrackMaterial,
+      this.bachelorTrackMaterial,
+      this.highlightTrackMaterial,
+      this.hoverTrackMaterial
+    ];
 
     this.renderer.setScissorTest(this.sideViewsShown);
     const oldVP = new THREE.Vector4();
     this.renderer.getViewport(oldVP);
 
     if (this.sideViewsShown) {
-      // Wyliczanie widoków R-Phi i Rho-Z...
+      // Render side views with 3D detector hidden.
+      const detectorVisible = this.detector.visible;
+      this.detector.visible = false;
+
       this.renderer.setViewport(this.camRphiVP);
       this.renderer.setScissor(this.camRphiVP);
       materials.forEach(m => (m as any).resolution?.set(this.camRphiVP.z, this.camRphiVP.w));
@@ -303,12 +398,18 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       this.renderer.setScissor(this.camRhozVP);
       materials.forEach(m => (m as any).resolution?.set(this.camRhozVP.z, this.camRhozVP.w));
       this.renderer.render(this.scene, this.cameraRhoz);
+
+      this.detector.visible = detectorVisible;
     }
 
+    // Render 3D view with side-view detector overlays hidden.
+    const detectorSideViewsVisible = this.detectorSideViews.visible;
+    this.detectorSideViews.visible = false;
     this.renderer.setViewport(this.cam3DVP);
     this.renderer.setScissor(this.cam3DVP);
     materials.forEach(m => (m as any).resolution?.set(this.cam3DVP.z, this.cam3DVP.w));
     this.renderer.render(this.scene, this.camera3D);
+    this.detectorSideViews.visible = detectorSideViewsVisible;
   }
 
   private resize(force: boolean) {
@@ -378,6 +479,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy() {
     this.renderingSubscription?.unsubscribe();
+    this.clearTrackHover();
   }
 
   private createScene() {
@@ -397,7 +499,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       EventDisplayComponent.nearClippingPlane,
       EventDisplayComponent.farClippingPlane
     );
-    this.camera3D.position.set(10, 10, 10);
+    this.camera3D.position.set(-7.5, 7.5, 2.5);
     this.camera3D.lookAt(0, 0, 0);
 
     this.cameraRphi = new THREE.PerspectiveCamera(
@@ -416,8 +518,8 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       EventDisplayComponent.nearClippingPlane,
       EventDisplayComponent.farClippingPlane
     );
-    this.cameraRhoz.position.set(0, 10, 0);
-    this.cameraRhoz.up.set(0, 0, -1);
+    this.cameraRhoz.position.set(-10, 0, 0);
+    this.cameraRhoz.up.set(0, 1, 0);
     this.cameraRhoz.lookAt(0, 0, 0);
 
     // Initialize controls
@@ -440,13 +542,89 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     // Build scene hierarchy
     this.scene.add(this.lights);
     this.scene.add(this.axes);
+    this.detectorSideViews.clear();
+    this.detectorSideViews.add(this.detectorSideViewsRphi);
+    this.detectorSideViews.add(this.detectorSideViewsRhoz);
     this.scene.add(this.detector);
     this.scene.add(this.detectorSideViews);
     this.scene.add(this.tracks);
     this.scene.add(this.decays);
     this.scene.add(this.clusters);
+    this.axes.visible = this._axesShown;
+    this.detector.visible = this._detectorShown;
+    this.detectorSideViews.visible = this._detectorShown;
+    this.tracks.visible = this._tracksShown;
+    this.decays.visible = this._decaysShown;
+    this.clusters.visible = this._clustersShown;
 
     // Initial resize
     this.resize(true);
+  }
+
+  private findIntersect(event: MouseEvent): THREE.Intersection[] {
+    const intersects: THREE.Intersection[] = [];
+    if (!this.renderer || !this.controls) return intersects;
+
+    const zoomz = this.controls.target.distanceTo(this.controls.object.position);
+    const raycaster = new THREE.Raycaster();
+    (raycaster.params as any).Line2 = (raycaster.params as any).Line2 || { threshold: zoomz / 55 };
+    (raycaster.params as any).Line2.threshold = zoomz / 55;
+    (raycaster.params as any).Line = (raycaster.params as any).Line || { threshold: zoomz / 55 };
+    (raycaster.params as any).Line.threshold = zoomz / 55;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const viewportClick = new THREE.Vector2(
+      event.clientX - rect.left,
+      -(event.clientY - rect.top) + this.renderer.domElement.clientHeight
+    );
+
+    const viewports = this.sideViewsShown
+      ? [
+          { view: this.cam3DVP, cam: this.camera3D },
+          { view: this.camRphiVP, cam: this.cameraRphi },
+          { view: this.camRhozVP, cam: this.cameraRhoz },
+        ]
+      : [{ view: this.cam3DVP, cam: this.camera3D }];
+
+    for (const v of viewports) {
+      const ndc = new THREE.Vector2(
+        ((viewportClick.x - v.view.x) / v.view.z - 0.5) * 2,
+        ((viewportClick.y - v.view.y) / v.view.w - 0.5) * 2
+      );
+      if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) continue;
+      raycaster.setFromCamera(ndc, v.cam);
+      if (this.decays.children.length > 0) {
+        intersects.push(...raycaster.intersectObjects(this.decays.children, true));
+      }
+    }
+
+    intersects.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    return intersects;
+  }
+
+  private clearTrackHover(): void {
+    if (this.trackHoverObj) {
+      this.trackHoverObj = null;
+    }
+    if (this.trackHoverOverlayObj?.parent) {
+      this.trackHoverOverlayObj.parent.remove(this.trackHoverOverlayObj);
+    }
+    this.trackHoverOverlayObj = null;
+  }
+
+  private createHoverOverlay(target: THREE.Object3D): THREE.Object3D | null {
+    if (!(target as any).geometry) return null;
+
+    if (target instanceof Line2) {
+      const overlay = new Line2((target as any).geometry, this.hoverTrackMaterial as LineMaterial);
+      overlay.computeLineDistances();
+      overlay.position.copy(target.position);
+      overlay.quaternion.copy(target.quaternion);
+      overlay.scale.copy(target.scale);
+      overlay.renderOrder = 1000;
+      (overlay as any).userData = { __hoverOverlay: true };
+      return overlay;
+    }
+    return null;
   }
 }

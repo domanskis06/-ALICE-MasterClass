@@ -22,7 +22,7 @@ import { AppComponent } from './app.component';
 import { AuthDialogComponent } from './auth-dialog/auth-dialog.component';
 import { SelectDatasetDialogComponent } from './select-dataset-dialog/select-dataset-dialog.component';
 import { InstructionsDialogComponent } from './instructions-dialog/instructions-dialog.component';
-import { AppConfig } from '../environments/environment.dev';
+import { AppConfig } from '../environments/environment';
 import { ApiService } from './shared/services/api.service';
 import { MockApiService } from './shared/services/mock-api.service';
 

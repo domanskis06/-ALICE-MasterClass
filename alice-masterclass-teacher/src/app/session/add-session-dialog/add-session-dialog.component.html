@@ -1,48 +1,52 @@
 <mat-dialog-content>
   <form [formGroup]="form">
-		<div>
-			<mat-form-field appearance="standard">
-				<mat-label>Event name</mat-label>
-				<mat-select formControlName="event">
-					<mat-option *ngFor="let e of events;" [value]="e.name"> {{ e.name }} </mat-option>
-				</mat-select>
-			</mat-form-field>
-		</div>
-		<div>
-			<mat-form-field appearance="standard">
-				<mat-label>Session name</mat-label>
-				<input matInput type="text" [formControl]="$any(form.controls.name)" required>
-				<button mat-icon-button matSuffix (click)="generateName()">
-					<mat-icon>shuffle</mat-icon>
-				</button>
-				<!-- <mat-error *ngIf="form.controls.name.value !== ''">Session with this name already exists.</mat-error> -->
-			</mat-form-field>
-		</div>
-		<div>
-      <mat-form-field appearance="standard" fxFlex="60">
-				<mat-label>Password</mat-label>
-				<input matInput type="text" [formControl]="$any(form.controls.password)" required>
-				<button mat-icon-button matSuffix (click)="generatePassword()">
-					<mat-icon>shuffle</mat-icon>
-				</button>
-				<!-- <input matInput [type]="hide ? 'password' : 'text'" [formControl]="$any(form.controls.password)" required>
-				<button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">
-					<mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
-				</button> -->
-				<mat-error *ngIf="form.controls.password.value !== ''">Session with this password already exists.</mat-error>
-			</mat-form-field>
-		</div>
-		<div>
-			<mat-form-field appearance="standard">
-				<mat-label>Maximum numer of students</mat-label>
-				<input matInput type="number" [formControl]="$any(form.controls.maxStudents)" required>
-			</mat-form-field>
-		</div>
+    <div>
+      <mat-form-field appearance="fill">
+        <mat-label>Event name</mat-label>
+        <mat-select formControlName="event">
+          @for (e of events; track e) {
+            <mat-option [value]="e.name"> {{ e.name }} </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div>
+      <mat-form-field appearance="fill">
+        <mat-label>Session name</mat-label>
+        <input matInput type="text" [formControl]="$any(form.controls.name)" required>
+        <button mat-icon-button matSuffix (click)="generateName()">
+          <mat-icon>shuffle</mat-icon>
+        </button>
+        <!-- <mat-error *ngIf="form.controls.name.value !== ''">Session with this name already exists.</mat-error> -->
+      </mat-form-field>
+    </div>
+    <div>
+      <mat-form-field appearance="fill" fxFlex="60">
+        <mat-label>Password</mat-label>
+        <input matInput type="text" [formControl]="$any(form.controls.password)" required>
+        <button mat-icon-button matSuffix (click)="generatePassword()">
+          <mat-icon>shuffle</mat-icon>
+        </button>
+        <!-- <input matInput [type]="hide ? 'password' : 'text'" [formControl]="$any(form.controls.password)" required>
+        <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">
+          <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+        </button> -->
+        @if (form.controls.password.value !== '') {
+          <mat-error>Session with this password already exists.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+    <div>
+      <mat-form-field appearance="fill">
+        <mat-label>Maximum numer of students</mat-label>
+        <input matInput type="number" [formControl]="$any(form.controls.maxStudents)" required>
+      </mat-form-field>
+    </div>
   </form>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-	<app-spinner-container [loading]="loading">
-		<button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onCreateButtonClicked()">Create Session</button>
-	</app-spinner-container>
-	<button mat-raised-button mat-dialog-close tabindex="-1">Cancel</button>
+  <app-spinner-container [loading]="loading">
+    <button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onCreateButtonClicked()">Create Session</button>
+  </app-spinner-container>
+  <button mat-raised-button mat-dialog-close tabindex="-1">Cancel</button>
 </mat-dialog-actions>

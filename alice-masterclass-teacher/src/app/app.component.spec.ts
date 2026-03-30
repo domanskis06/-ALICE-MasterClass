@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { RouterTestingModule } from '@angular/router/testing';
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { AngularModule } from './shared/angular.module';
 import { SharedModule } from './shared/shared.module';
 
@@ -12,20 +12,18 @@ import { NavComponent } from './nav/nav.component';
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [
-        RouterTestingModule,
-        HttpClientModule,
-        AngularModule,
-        SharedModule
-      ],
-      declarations: [
+    declarations: [
         AppComponent,
         NavComponent
-      ],
-      providers: [
-        ApiService
-      ]
-    }).compileComponents();
+    ],
+    imports: [RouterTestingModule,
+        AngularModule,
+        SharedModule],
+    providers: [
+        ApiService,
+        provideHttpClient(withInterceptorsFromDi())
+    ]
+}).compileComponents();
   });
 
   it('should create the app', () => {

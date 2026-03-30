@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { of } from 'rxjs';
 
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { AngularModule } from '../shared/angular.module';
 import { SharedModule } from '../shared/shared.module';
 
@@ -26,14 +26,14 @@ describe('StrangenessVisualAnalysisComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [
+    declarations: [
         StrangenessVisualAnalysisComponent,
         MassHistogramsComponent,
         ResultsComponent
-      ],
-      imports: [ HttpClientModule, AngularModule, SharedModule ],
-      providers: [ ApiService ]
-    })
+    ],
+    imports: [AngularModule, SharedModule],
+    providers: [ApiService, provideHttpClient(withInterceptorsFromDi())]
+})
     .compileComponents();
   });
 

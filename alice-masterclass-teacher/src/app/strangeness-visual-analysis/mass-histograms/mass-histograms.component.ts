@@ -1,9 +1,10 @@
 import { Component, Input, OnInit } from '@angular/core';
 
 @Component({
-  selector: 'app-mass-histograms',
-  templateUrl: './mass-histograms.component.html',
-  styleUrls: ['./mass-histograms.component.scss']
+    selector: 'app-mass-histograms',
+    templateUrl: './mass-histograms.component.html',
+    styleUrls: ['./mass-histograms.component.scss'],
+    standalone: false
 })
 export class MassHistogramsComponent implements OnInit {
 

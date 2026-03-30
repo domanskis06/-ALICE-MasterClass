@@ -31,7 +31,10 @@ export interface StrangenessEnhancementPlotEntry {
   enhancement: number;
 }
 
-@Pipe({name: 'centralityName'})
+@Pipe({
+    name: 'centralityName',
+    standalone: false
+})
 export class CentralityNamePipe implements PipeTransform {
   transform(key: string): string {
     switch(key) {
@@ -62,9 +65,10 @@ export const LAMBDA_COLOR: string = '#33A02C';
 export const ANTILAMBDA_COLOR: string = '#E31A1C';
 
 @Component({
-  selector: 'app-strangeness-large-scale-analysis',
-  templateUrl: './strangeness-large-scale-analysis.component.html',
-  styleUrls: ['./strangeness-large-scale-analysis.component.scss']
+    selector: 'app-strangeness-large-scale-analysis',
+    templateUrl: './strangeness-large-scale-analysis.component.html',
+    styleUrls: ['./strangeness-large-scale-analysis.component.scss'],
+    standalone: false
 })
 export class StrangenessLargeScaleAnalysisComponent implements OnInit {
 

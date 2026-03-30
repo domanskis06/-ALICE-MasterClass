@@ -1,25 +1,26 @@
 import { Component, OnInit, Inject } from '@angular/core';
 import { MatDialogRef, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { UntypedFormGroup, UntypedFormBuilder, Validators } from '@angular/forms';
 import { ApiService } from 'src/app/shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
-  selector: 'app-add-event-dialog',
-  templateUrl: './add-event-dialog.component.html',
-  styleUrls: ['./add-event-dialog.component.scss']
+    selector: 'app-add-event-dialog',
+    templateUrl: './add-event-dialog.component.html',
+    styleUrls: ['./add-event-dialog.component.scss'],
+    standalone: false
 })
 export class AddEventDialogComponent implements OnInit {
 
   public hide: boolean = true;
   public loading: boolean = false;
 
-  public form!: FormGroup;
+  public form!: UntypedFormGroup;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private data: any,
     private dialogRef: MatDialogRef<AddEventDialogComponent>,
-    private formBuilder: FormBuilder,
+    private formBuilder: UntypedFormBuilder,
     private apiService: ApiService) {
   }
 

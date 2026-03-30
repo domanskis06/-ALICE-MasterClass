@@ -1,17 +1,19 @@
 <mat-dialog-content>
   <form [formGroup]="form">
-		<div>
-			<mat-form-field appearance="standard">
-				<mat-label>Event name</mat-label>
-				<input matInput type="text" [formControl]="$any(form.controls.name)" required>
-				<mat-error *ngIf="form.controls.name.value !== ''">Event with this name already exists.</mat-error>
-			</mat-form-field>
-		</div>
+    <div>
+      <mat-form-field appearance="fill">
+        <mat-label>Event name</mat-label>
+        <input matInput type="text" [formControl]="$any(form.controls.name)" required>
+        @if (form.controls.name.value !== '') {
+          <mat-error>Event with this name already exists.</mat-error>
+        }
+      </mat-form-field>
+    </div>
   </form>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-	<app-spinner-container [loading]="loading">
-		<button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onCreateButtonClicked()">Create Event</button>
-	</app-spinner-container>
-	<button mat-raised-button mat-dialog-close tabindex="-1">Cancel</button>
+  <app-spinner-container [loading]="loading">
+    <button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onCreateButtonClicked()">Create Event</button>
+  </app-spinner-container>
+  <button mat-raised-button mat-dialog-close tabindex="-1">Cancel</button>
 </mat-dialog-actions>

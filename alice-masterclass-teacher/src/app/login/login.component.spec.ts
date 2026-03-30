@@ -1,7 +1,7 @@
 import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 import { ApiService } from '../shared/services/api.service';
 
@@ -23,10 +23,10 @@ describe('LoginComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ LoginComponent ],
-      imports: [ HttpClientModule, RouterTestingModule ],
-      providers: [ ApiService ]
-    })
+    declarations: [LoginComponent],
+    imports: [RouterTestingModule],
+    providers: [ApiService, provideHttpClient(withInterceptorsFromDi())]
+})
     .compileComponents();
   });
 

@@ -3,9 +3,10 @@ import { MatTableDataSource } from '@angular/material/table';
 import { StrangenessEnhancementEntry, KAON_COLOR, LAMBDA_COLOR, ANTILAMBDA_COLOR } from '../strangeness-large-scale-analysis.component';
 
 @Component({
-  selector: 'app-results',
-  templateUrl: './results.component.html',
-  styleUrls: ['./results.component.scss']
+    selector: 'app-results',
+    templateUrl: './results.component.html',
+    styleUrls: ['./results.component.scss'],
+    standalone: false
 })
 export class ResultsComponent implements OnInit {
   @Input()

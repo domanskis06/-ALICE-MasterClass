@@ -24,9 +24,10 @@ export interface StudentResult {
 }
 
 @Component({
-  selector: 'app-strangeness-visual-analysis',
-  templateUrl: './strangeness-visual-analysis.component.html',
-  styleUrls: ['./strangeness-visual-analysis.component.scss']
+    selector: 'app-strangeness-visual-analysis',
+    templateUrl: './strangeness-visual-analysis.component.html',
+    styleUrls: ['./strangeness-visual-analysis.component.scss'],
+    standalone: false
 })
 export class StrangenessVisualAnalysisComponent implements OnInit {
 

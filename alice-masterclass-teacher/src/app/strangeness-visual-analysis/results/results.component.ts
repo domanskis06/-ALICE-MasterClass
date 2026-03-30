@@ -9,9 +9,10 @@ export interface StudentSelectedEvent {
 }
 
 @Component({
-  selector: 'app-results',
-  templateUrl: './results.component.html',
-  styleUrls: ['./results.component.scss']
+    selector: 'app-results',
+    templateUrl: './results.component.html',
+    styleUrls: ['./results.component.scss'],
+    standalone: false
 })
 export class ResultsComponent implements OnInit {
   public readonly displayedColumns: string[] = ['select', 'student', 'dataset', 'kaonMasses', 'lambdaMasses', 'antiLambdaMasses', 'xiMasses'];

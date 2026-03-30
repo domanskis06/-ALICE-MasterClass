@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { AuthGuard } from './shared/services/auth.guard';
 
 import { AppRoutingModule } from './app-routing.module';
@@ -21,33 +21,27 @@ import { SelectEventDialogComponent } from './select-event-dialog/select-event-d
 import { LoginComponent } from './login/login.component';
 import { UnauthorizedInterceptor } from './shared/unauthorized.interceptor';
 
-@NgModule({
-  declarations: [
-    AppComponent,
-    NavComponent,
-    SessionUrlPipe,
-    SessionComponent,
-    AddSessionDialogComponent,
-    SelectSessionDialogComponent,
-    ConfirmDialogComponent,
-    AddEventDialogComponent,
-    SelectEventDialogComponent,
-    LoginComponent
-  ],
-  imports: [
-    BrowserModule,
-    AppRoutingModule,
-    HttpClientModule,
-    AngularModule,
-    SharedModule,
-    StrangenessVisualAnalysisModule,
-    StrangenessLargeScaleAnalysisModule
-  ],
-  providers: [
-    { provide: HTTP_INTERCEPTORS, useClass: UnauthorizedInterceptor, multi: true },
-    AuthGuard,
-    SessionUrlPipe
-  ],
-  bootstrap: [AppComponent]
-})
+@NgModule({ declarations: [
+        AppComponent,
+        NavComponent,
+        SessionUrlPipe,
+        SessionComponent,
+        AddSessionDialogComponent,
+        SelectSessionDialogComponent,
+        ConfirmDialogComponent,
+        AddEventDialogComponent,
+        SelectEventDialogComponent,
+        LoginComponent
+    ],
+    bootstrap: [AppComponent], imports: [BrowserModule,
+        AppRoutingModule,
+        AngularModule,
+        SharedModule,
+        StrangenessVisualAnalysisModule,
+        StrangenessLargeScaleAnalysisModule], providers: [
+        { provide: HTTP_INTERCEPTORS, useClass: UnauthorizedInterceptor, multi: true },
+        AuthGuard,
+        SessionUrlPipe,
+        provideHttpClient(withInterceptorsFromDi())
+    ] })
 export class AppModule { }
