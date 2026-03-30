@@ -1,7 +1,7 @@
 <mat-dialog-content>
   <form [formGroup]="form">
 		<div>
-			<mat-form-field appearance="standard">
+			<mat-form-field appearance="fill">
 				<mat-label>Event name</mat-label>
 				<input matInput type="text" [formControl]="$any(form.controls.name)" required>
 				<mat-error *ngIf="form.controls.name.value !== ''">Event with this name already exists.</mat-error>
