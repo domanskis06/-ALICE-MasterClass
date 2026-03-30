@@ -5,11 +5,33 @@
   <title>ALICE MasterClass</title>
   <base href="./">
 
-  <meta http-equiv="Content-Security-Policy" 
-        content="default-src 'self'; 
-                 script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
-                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
-                 font-src 'self' https://fonts.gstatic.com; 
+  <script>
+    (function() {
+      if (typeof window !== 'undefined') {
+        if (typeof window.global === 'undefined') {
+          window.global = window;
+        }
+        if (typeof window.process === 'undefined') {
+          window.process = { env: {} };
+        }
+        if (typeof window.require === 'undefined') {
+          window.require = function(module) {
+            console.warn('require() called in browser context for module:', module);
+            // Return a mock constructor function that can be called with 'new'
+            var MockConstructor = function() { return {}; };
+            MockConstructor.prototype = {};
+            return MockConstructor;
+          };
+        }
+      }
+    })();
+  </script>
+
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self' 'unsafe-inline' 'unsafe-eval';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src 'self' https://fonts.gstatic.com;
                  img-src 'self' data: http://localhost:4200;">
 
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">

@@ -1,3 +1,22 @@
+
+if (typeof (window as any).global === 'undefined') {
+  (window as any).global = window;
+}
+
+if (typeof (window as any).process === 'undefined') {
+  (window as any).process = { env: {} } as any;
+}
+
+if (typeof (window as any).require === 'undefined') {
+  (window as any).require = function(module: string) {
+    console.warn('require() called in browser context for module:', module);
+    // Return a mock constructor function that can be called with 'new'
+    const MockConstructor: any = function() { return {}; };
+    MockConstructor.prototype = {};
+    return MockConstructor;
+  };
+}
+
 /**
  * This file includes polyfills needed by Angular and is loaded before the app.
  * You can add your own extra polyfills to this file.
@@ -51,3 +70,4 @@ import 'zone.js';  // Included with Angular CLI.
 /***************************************************************************************************
  * APPLICATION IMPORTS
  */
+

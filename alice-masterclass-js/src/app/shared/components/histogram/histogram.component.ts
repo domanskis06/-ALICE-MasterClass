@@ -11,7 +11,7 @@ import * as d3 from 'd3';
 export class HistogramComponent implements AfterViewInit, OnDestroy {
   @Input()
   @HostBinding("style.--bar-color")
-  private barColor: string = "#4169E1";
+  public barColor: string = "#4169E1";
 
   readonly SVG = {
     W: 400,
@@ -38,14 +38,14 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
   protected readonly ANIMATION_DURATION: number = 500;
 
   @ViewChild('svg')
-  private svgRef: ElementRef;
+  private svgRef!: ElementRef;
 
   private get svg(): SVGElement {
     return this.svgRef.nativeElement;
   }
 
   @ViewChild('xAxis')
-  private xAxisRef: ElementRef;
+  private xAxisRef!: ElementRef;
 
   private get xAxis(): SVGGElement {
     return this.xAxisRef.nativeElement;
@@ -56,7 +56,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
   }
 
   @ViewChild('yAxis')
-  private yAxisRef: ElementRef;
+  private yAxisRef!: ElementRef;
 
   private get yAxis(): SVGGElement {
     return this.yAxisRef.nativeElement;
@@ -67,7 +67,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
   }
 
   @ViewChild('bars')
-  private barsRef: ElementRef;
+  private barsRef!: ElementRef;
 
   private get bars(): SVGGElement {
     return this.barsRef.nativeElement;
@@ -78,7 +78,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
   }
 
   @ViewChild('brush')
-  private brushRef: ElementRef;
+  private brushRef!: ElementRef;
 
   private get brush(): SVGGElement {
     return this.brushRef.nativeElement;

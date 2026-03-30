@@ -15,14 +15,14 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
 
   @Input()
   @HostBinding("style.--signal-color")
-  private signalColor: string = "#F00000";
+  public signalColor: string = "#F00000";
 
   @Input()
   @HostBinding("style.--background-color")
-  private backgroundColor: string = "#0066CC";
+  public backgroundColor: string = "#0066CC";
 
   @ViewChild('signal')
-  private signalRef: ElementRef;
+  public signalRef!: ElementRef;
 
   private get signal(): SVGPathElement {
     return this.signalRef.nativeElement;
@@ -33,7 +33,7 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
   }
 
   @ViewChild('background')
-  private backgroundRef: ElementRef;
+  public backgroundRef!: ElementRef;
 
   private get background(): SVGPathElement {
     return this.backgroundRef.nativeElement;
@@ -116,7 +116,7 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
 
   ngOnDestroy(): void {
     super.ngOnDestroy();
-    
+
     this.signalFunctionSubscription.unsubscribe();
     this.backgroundFunctionSubscription.unsubscribe();
     this.signalRangeSubscription.unsubscribe();
@@ -133,7 +133,7 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
     }
 
     this.signalPoints = [];
-    
+
     const intervalS = (this.signalRange[1] - this.signalRange[0]) / this.LINE_POINTS;
 
     for (let x = this.signalRange[0]; x < this.signalRange[1]; x += intervalS) {
@@ -160,7 +160,7 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
       this.lineGenerator
         .x( (d) => { return this.xScale(d[0])} )
         .y( (d) => { return this.yScale(d[1])} );
-  
+
       this.updateLines();
     }
   }
@@ -172,7 +172,7 @@ export class FitHistogramComponent extends HistogramComponent implements AfterVi
       this.lineGenerator
         .x( (d) => { return this.xScale(d[0])} )
         .y( (d) => { return this.yScale(d[1])} );
-  
+
       this.updateLines();
     }
   }

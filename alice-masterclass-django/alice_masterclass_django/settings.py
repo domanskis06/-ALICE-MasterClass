@@ -29,16 +29,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-d@sohzq%*(9-g)%9zrkrau+d348@ao0b4d-5=gr49jq1uvki8t')
 
 DJANGO_LOCAL = int(os.getenv('DJANGO_LOCAL', 0)) == 1
-DJANGO_DUMMY_AUTH = int(os.getenv('DJANGO_DUMMY_AUTH', 0)) == 1
+_use_production_env = bool(os.getenv('ALLOWED_HOSTS') and os.getenv('CORS_ALLOWED_ORIGINS'))
+# Enable dummy auth when local or when production env not configured (avoids 401 for local dev)
+DJANGO_DUMMY_AUTH = int(os.getenv('DJANGO_DUMMY_AUTH', 1 if not _use_production_env else 0)) == 1
 
 # SECURITY WARNING: don't run with debug turned on in production!
-if DJANGO_LOCAL == 1:
+if DJANGO_LOCAL == 1 or not _use_production_env:
     DEBUG = True
     CORS_ALLOW_ALL_ORIGINS = True
+    if not _use_production_env:
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 else:
-    ALLOWED_HOSTS = [os.getenv('ALLOWED_HOSTS')]
-
-    CORS_ALLOWED_ORIGINS = list(os.getenv('CORS_ALLOWED_ORIGINS').split(','))
+    ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS').split(',')]
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS').split(',')]
 
 # Auto-configure settings based on data returned by the well-known endpoint
 WELL_KNOWN_URL = os.getenv('WELL_KNOWN_URL', 'https://auth.cern.ch/auth/realms/cern/.well-known/openid-configuration')
@@ -47,14 +50,16 @@ LOGIN_URL = 'https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/token
 LOGOUT_URL = 'https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/logout'
 INFO_URL = 'https://auth.cern.ch/auth/realms/cern/account'
 
-r = requests.get(WELL_KNOWN_URL)
-
-if r.status_code == status.HTTP_200_OK:
-    data = json.loads(r.text)
-    AUTH_URL = data['authorization_endpoint']
-    LOGIN_URL = data['token_endpoint']
-    LOGOUT_URL = data['end_session_endpoint']
-    INFO_URL = data['userinfo_endpoint']
+# Skip CERN auth fetch when running locally (avoids proxy/network errors outside CERN)
+_skip_cern_fetch = not _use_production_env or (DJANGO_LOCAL and DJANGO_DUMMY_AUTH)
+if not _skip_cern_fetch:
+    r = requests.get(WELL_KNOWN_URL)
+    if r.status_code == status.HTTP_200_OK:
+        data = json.loads(r.text)
+        AUTH_URL = data['authorization_endpoint']
+        LOGIN_URL = data['token_endpoint']
+        LOGOUT_URL = data['end_session_endpoint']
+        INFO_URL = data['userinfo_endpoint']
 
 REDIRECT_URI = os.getenv('REDIRECT_URI', 'http://localhost:8000/oauth')
 CLIENT_ID = os.getenv('CLIENT_ID', 'webframeworks-paas-alice-masterclass2')
@@ -137,11 +142,11 @@ WSGI_APPLICATION = 'alice_masterclass_django.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-if DJANGO_LOCAL:
+if DJANGO_LOCAL or not _use_production_env:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': 'masterclass.sqlite'
+            'NAME': str(BASE_DIR / 'masterclass.sqlite')
         }
     }
 else:

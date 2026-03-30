@@ -1,0 +1,14 @@
+table {
+  width: 100%;
+}
+
+th, td {
+  overflow: hidden;
+  width: auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  line-height: 40px;
+}

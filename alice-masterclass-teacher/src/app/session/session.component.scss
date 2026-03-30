@@ -1,0 +1,52 @@
+.container {
+  padding: 10px;
+}
+
+.title {
+  line-height: 40px;
+}
+
+.no-events,
+.no-sessions {
+  color: rgba(0, 0, 0, 0.6);
+  padding: 16px;
+}
+
+.sessions-container {
+  padding: 8px 0;
+}
+
+table {
+  width: 100%;
+}
+
+.non-interactive {
+  border-top-style: hidden;
+  border-right-style: hidden;
+  border-left-style: hidden;
+  border-bottom-style: hidden;
+  outline: none;
+  pointer-events: none;
+}
+
+td.hover-visible button {
+  visibility: hidden;
+  opacity: 20%;
+
+  &:hover, &:focus {
+    visibility: visible;
+    opacity: 60%;
+  }
+}
+
+td.hover-visible:hover button {
+  visibility: visible;
+}
+
+td button {
+  opacity: 20%;
+
+  &:hover, &:focus {
+    opacity: 60%;
+  }
+}

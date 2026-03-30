@@ -22,6 +22,9 @@ import { AppComponent } from './app.component';
 import { AuthDialogComponent } from './auth-dialog/auth-dialog.component';
 import { SelectDatasetDialogComponent } from './select-dataset-dialog/select-dataset-dialog.component';
 import { InstructionsDialogComponent } from './instructions-dialog/instructions-dialog.component';
+import { AppConfig } from '../environments/environment.dev';
+import { ApiService } from './shared/services/api.service';
+import { MockApiService } from './shared/services/mock-api.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient): TranslateHttpLoader {
@@ -46,5 +49,10 @@ export function HttpLoaderFactory(http: HttpClient): TranslateHttpLoader {
         NavModule,
         AboutModule,
         StrangenessVisualAnalysisModule,
-        StrangenessLargeScaleAnalysisModule], providers: [provideHttpClient(withInterceptorsFromDi())] })
+        StrangenessLargeScaleAnalysisModule], providers: [
+            provideHttpClient(withInterceptorsFromDi()),
+            // Jeśli w konfiguracji deweloperskiej włączony jest teacherMode,
+            // zamieniamy ApiService na MockApiService
+            ...(AppConfig && (AppConfig as any).teacherMode ? [{ provide: ApiService, useClass: MockApiService }] : [])
+        ] })
 export class AppModule {}

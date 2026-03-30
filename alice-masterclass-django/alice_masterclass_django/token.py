@@ -3,7 +3,7 @@ import string
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions
 from django.utils import timezone
@@ -13,6 +13,14 @@ from . import settings
 alphabet = string.ascii_letters + string.digits + string.punctuation
 
 class TemporaryTokenAuthentication(TokenAuthentication):
+	def authenticate(self, request):
+		auth = get_authorization_header(request).split()
+		# When dummy auth is on, treat missing/invalid token as testuser (for local dev)
+		if settings.DJANGO_DUMMY_AUTH and (not auth or auth[0].lower() != self.keyword.lower().encode()):
+			token = TemporaryTokenAuthentication.createOrRefreshToken('testuser', 'test@test.com')
+			return (token.user, token)
+		return super().authenticate(request)
+
 	@staticmethod
 	def isExpired(token):
 		if (timezone.now() - token.created) >= settings.TOKEN_EXPIRATION_TIME:

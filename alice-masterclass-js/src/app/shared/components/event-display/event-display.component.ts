@@ -126,6 +126,18 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private get canvas(): HTMLCanvasElement { return this.canvasRef.nativeElement; }
   private get aspectRatio(): number { return this.canvas.clientWidth / this.canvas.clientHeight; }
 
+  @Input() previousEventButtonDisabled: boolean = false;
+  @Input() nextEventButtonDisabled: boolean = false;
+  @Input() detectorRphi: string | null = null;
+  @Input() detectorRhoz: string | null = null;
+
+  // Minimal handlers exposed to template
+  onPointerDown(event: PointerEvent): void { event.preventDefault(); }
+  onPointerMove(event: PointerEvent): void { /* no-op for now */ }
+
+  onPreviousEventClick(): void { this.previousEvent.emit(); }
+  onNextEventClick(): void { this.nextEvent.emit(); }
+
   @Input()
   set detectorModel(value: string) {
     this._detectorModel = value;
@@ -184,13 +196,13 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   @Input() set decaysShown(value: boolean) { this.decays.visible = value; }
 
   private createLine(track: number[][], material: THREE.Material): THREE.Object3D {
-    const points: THREE.Vector3[] = track.map(p => 
+    const points: THREE.Vector3[] = track.map(p =>
       new THREE.Vector3(p[0] * EventDisplayComponent.objectScale, p[1] * EventDisplayComponent.objectScale, p[2] * EventDisplayComponent.objectScale)
     );
 
     const spline = new THREE.CatmullRomCurve3(points);
     const vertices = spline.getPoints(EventDisplayComponent.lineSegments);
-    
+
     if (this.TRACKS_USE_GL_LINES) {
       const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
       return new THREE.Line(geometry, material);
@@ -221,7 +233,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         if (track.type === TrackType.CASCADE_BACHELOR) mat = this.bachelorTrackMaterial;
         else if (track.sign < 0) mat = this.negativeTrackMaterial;
         else if (track.sign > 0) mat = this.postiveTrackMaterial;
-        
+
         const line = this.createLine(track.trajectory, mat);
         line.userData = track;
         decayObject.add(line);
@@ -231,7 +243,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     }
 
     if (event.clusters) {
-      const clusterPoints = event.clusters.map(p => 
+      const clusterPoints = event.clusters.map(p =>
         new THREE.Vector3(p[0] * EventDisplayComponent.objectScale, p[1] * EventDisplayComponent.objectScale, p[2] * EventDisplayComponent.objectScale)
       );
       if (this.CLUSTERS_USE_POINTS) {
@@ -286,7 +298,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       this.renderer.setScissor(this.camRphiVP);
       materials.forEach(m => (m as any).resolution?.set(this.camRphiVP.z, this.camRphiVP.w));
       this.renderer.render(this.scene, this.cameraRphi);
-      
+
       this.renderer.setViewport(this.camRhozVP);
       this.renderer.setScissor(this.camRhozVP);
       materials.forEach(m => (m as any).resolution?.set(this.camRhozVP.z, this.camRhozVP.w));
@@ -299,16 +311,142 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.renderer.render(this.scene, this.camera3D);
   }
 
-  // Reszta metod pomocniczych (resize, createScene, event handlers) pozostaje logicznie ta sama, 
-  // ale z uwzględnieniem typowania TS...
-  private resize(force: boolean) { /* Implementacja z Twojego kodu */ }
-  ngAfterViewInit() { this.createScene(); this.renderingSubscription = this.rendernig.subscribe(() => this.render()); }
-  ngOnDestroy() { this.renderingSubscription?.unsubscribe(); }
+  private resize(force: boolean) {
+    if (!this.canvas || !this.renderer) return;
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    const needResize = force || this.canvas.width !== width || this.canvas.height !== height;
+
+    if (needResize) {
+      this.renderer.setSize(width, height, false);
+
+      // Update cameras
+      if (this.camera3D) {
+        this.camera3D.aspect = this.aspectRatio;
+        this.camera3D.updateProjectionMatrix();
+      }
+
+      if (this.cameraRphi) {
+        this.cameraRphi.aspect = this.aspectRatio;
+        this.cameraRphi.updateProjectionMatrix();
+      }
+
+      if (this.cameraRhoz) {
+        this.cameraRhoz.aspect = this.aspectRatio;
+        this.cameraRhoz.updateProjectionMatrix();
+      }
+
+      // Update viewports for side views
+      if (this.sideViewsShown) {
+        const w = width;
+        const h = height;
+        const primaryRatio = this.PRIMARY_AXIS_RATIO;
+        const secondaryRatio = this.SECONDARY_AXIS_RATIO;
+
+        if (this.landscape) {
+          const w1 = Math.floor(w * primaryRatio);
+          const h1 = h;
+          const w2 = w - w1;
+          const h2 = Math.floor(h * secondaryRatio);
+          const h3 = h - h2;
+
+          this.cam3DVP.set(0, 0, w1, h1);
+          this.camRphiVP.set(w1, h2, w2, h3);
+          this.camRhozVP.set(w1, 0, w2, h2);
+        } else {
+          const w1 = w;
+          const h1 = Math.floor(h * primaryRatio);
+          const w2 = Math.floor(w * secondaryRatio);
+          const h2 = h - h1;
+          const w3 = w - w2;
+
+          this.cam3DVP.set(0, h2, w1, h1);
+          this.camRphiVP.set(0, 0, w2, h2);
+          this.camRhozVP.set(w2, 0, w3, h2);
+        }
+      } else {
+        this.cam3DVP.set(0, 0, width, height);
+      }
+    }
+  }
+
+  ngAfterViewInit() {
+    this.createScene();
+    this.renderingSubscription = this.rendernig.subscribe(() => this.render());
+  }
+
+  ngOnDestroy() {
+    this.renderingSubscription?.unsubscribe();
+  }
 
   private createScene() {
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, logarithmicDepthBuffer: true, antialias: true });
+    // Initialize renderer
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      logarithmicDepthBuffer: true,
+      antialias: true
+    });
     this.renderer.setClearColor(0xFFFFFF);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Initialize cameras
+    this.camera3D = new THREE.PerspectiveCamera(
+      EventDisplayComponent.fieldOfView,
+      this.aspectRatio,
+      EventDisplayComponent.nearClippingPlane,
+      EventDisplayComponent.farClippingPlane
+    );
+    this.camera3D.position.set(10, 10, 10);
+    this.camera3D.lookAt(0, 0, 0);
+
+    this.cameraRphi = new THREE.PerspectiveCamera(
+      EventDisplayComponent.fieldOfView,
+      this.aspectRatio,
+      EventDisplayComponent.nearClippingPlane,
+      EventDisplayComponent.farClippingPlane
+    );
+    this.cameraRphi.position.set(0, 0, 10);
+    this.cameraRphi.up.set(0, 1, 0);
+    this.cameraRphi.lookAt(0, 0, 0);
+
+    this.cameraRhoz = new THREE.PerspectiveCamera(
+      EventDisplayComponent.fieldOfView,
+      this.aspectRatio,
+      EventDisplayComponent.nearClippingPlane,
+      EventDisplayComponent.farClippingPlane
+    );
+    this.cameraRhoz.position.set(0, 10, 0);
+    this.cameraRhoz.up.set(0, 0, -1);
+    this.cameraRhoz.lookAt(0, 0, 0);
+
+    // Initialize controls
     this.controls = new OrbitControls(this.camera3D, this.renderer.domElement);
-    // ... reszta inicjalizacji sceny
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+
+    // Add lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.lights.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    directionalLight.position.set(10, 10, 10);
+    this.lights.add(directionalLight);
+
+    // Add axes helper
+    const axesHelper = new THREE.AxesHelper(5);
+    this.axes.add(axesHelper);
+
+    // Build scene hierarchy
+    this.scene.add(this.lights);
+    this.scene.add(this.axes);
+    this.scene.add(this.detector);
+    this.scene.add(this.detectorSideViews);
+    this.scene.add(this.tracks);
+    this.scene.add(this.decays);
+    this.scene.add(this.clusters);
+
+    // Initial resize
+    this.resize(true);
   }
 }
