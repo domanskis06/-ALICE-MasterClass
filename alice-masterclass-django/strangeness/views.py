@@ -23,15 +23,20 @@ class SubmitVisualAnalysisResultsAPI(APIView):
             if 'results' not in request.data:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
-            if student < 0 or student >= session.maxStudents:
+            # Accept both 0-based and 1-based student numbering from clients.
+            student_idx = student
+            if 1 <= student <= session.maxStudents:
+                student_idx = student - 1
+
+            if student_idx < 0 or student_idx >= session.maxStudents:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
                 # delete previously submitted data (deletes all entries with it)
-                VisualAnalysisResult.objects.filter(session=session, student=student, dataset=dataset).delete()
+                VisualAnalysisResult.objects.filter(session=session, student=student_idx, dataset=dataset).delete()
 
                 # create new result and save it to the database
-                vaResult = VisualAnalysisResult(session=session, student=student, dataset=dataset)
+                vaResult = VisualAnalysisResult(session=session, student=student_idx, dataset=dataset)
                 vaResult.save()
 
                 # create the individual sample points and check if they are valid
@@ -93,15 +98,20 @@ class SubmitLargeScaleAnalysisResultsAPI(APIView):
             if 'results' not in request.data:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
-            if student < 0 or student >= session.maxStudents:
+            # Accept both 0-based and 1-based student numbering from clients.
+            student_idx = student
+            if 1 <= student <= session.maxStudents:
+                student_idx = student - 1
+
+            if student_idx < 0 or student_idx >= session.maxStudents:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
                 # delete previously submitted data (deletes all entries with it)
-                LargeScaleAnalysisResult.objects.filter(session=session, student=student).delete()
+                LargeScaleAnalysisResult.objects.filter(session=session, student=student_idx).delete()
 
                 # create new result and save it to the database
-                lsaResult = LargeScaleAnalysisResult(session=session, student=student)
+                lsaResult = LargeScaleAnalysisResult(session=session, student=student_idx)
                 lsaResult.save()
 
                 # create the individual sample points and check if they are valid
