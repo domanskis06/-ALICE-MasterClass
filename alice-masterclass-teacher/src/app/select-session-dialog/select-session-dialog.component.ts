@@ -4,9 +4,10 @@ import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { SessionAPI, ApiService } from '../shared/services/api.service';
 
 @Component({
-  selector: 'app-select-session-dialog',
-  templateUrl: './select-session-dialog.component.html',
-  styleUrls: ['./select-session-dialog.component.scss']
+    selector: 'app-select-session-dialog',
+    templateUrl: './select-session-dialog.component.html',
+    styleUrls: ['./select-session-dialog.component.scss'],
+    standalone: false
 })
 export class SelectSessionDialogComponent implements OnInit {
   public proceedClickedEvent: EventEmitter<number> = new EventEmitter<number>();

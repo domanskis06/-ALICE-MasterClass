@@ -5,9 +5,10 @@ import { ApiService } from 'src/app/shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
-  selector: 'app-add-event-dialog',
-  templateUrl: './add-event-dialog.component.html',
-  styleUrls: ['./add-event-dialog.component.scss']
+    selector: 'app-add-event-dialog',
+    templateUrl: './add-event-dialog.component.html',
+    styleUrls: ['./add-event-dialog.component.scss'],
+    standalone: false
 })
 export class AddEventDialogComponent implements OnInit {
 

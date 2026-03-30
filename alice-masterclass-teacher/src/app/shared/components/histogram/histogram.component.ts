@@ -3,9 +3,10 @@ import { BehaviorSubject, Subscription } from 'rxjs';
 import * as d3 from 'd3';
 
 @Component({
-  selector: 'app-histogram',
-  templateUrl: './histogram.component.html',
-  styleUrls: ['./histogram.component.scss']
+    selector: 'app-histogram',
+    templateUrl: './histogram.component.html',
+    styleUrls: ['./histogram.component.scss'],
+    standalone: false
 })
 export class HistogramComponent implements AfterViewInit, OnDestroy {
   @Input()

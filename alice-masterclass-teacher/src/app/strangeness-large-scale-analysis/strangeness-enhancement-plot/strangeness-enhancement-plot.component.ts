@@ -6,9 +6,10 @@ import { StrangenessEnhancementPlotEntry, KAON_COLOR, LAMBDA_COLOR, ANTILAMBDA_C
 import { ParticleType } from '../../shared/services/api.service';
 
 @Component({
-  selector: 'app-strangeness-enhancement-plot',
-  templateUrl: './strangeness-enhancement-plot.component.html',
-  styleUrls: ['./strangeness-enhancement-plot.component.scss']
+    selector: 'app-strangeness-enhancement-plot',
+    templateUrl: './strangeness-enhancement-plot.component.html',
+    styleUrls: ['./strangeness-enhancement-plot.component.scss'],
+    standalone: false
 })
 export class StrangenessEnhancementPlotComponent implements AfterViewInit, OnDestroy {
   @Input()

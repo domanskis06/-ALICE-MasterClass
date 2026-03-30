@@ -17,7 +17,10 @@ export interface EventWithSessions {
   sessions: SessionAPI[];
 }
 
-@Pipe({name: 'sessionUrl'})
+@Pipe({
+    name: 'sessionUrl',
+    standalone: false
+})
 export class SessionUrlPipe implements PipeTransform {
   transform(password: string): string {
     return `${environment.masterclassHost}?password=${encodeURIComponent(password)}`;
@@ -25,9 +28,10 @@ export class SessionUrlPipe implements PipeTransform {
 }
 
 @Component({
-  selector: 'app-session',
-  templateUrl: './session.component.html',
-  styleUrls: ['./session.component.scss']
+    selector: 'app-session',
+    templateUrl: './session.component.html',
+    styleUrls: ['./session.component.scss'],
+    standalone: false
 })
 export class SessionComponent implements AfterViewInit {
 

@@ -5,9 +5,10 @@ import { EventAPI, ApiService } from '../shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
-  selector: 'app-select-event-dialog',
-  templateUrl: './select-event-dialog.component.html',
-  styleUrls: ['./select-event-dialog.component.scss']
+    selector: 'app-select-event-dialog',
+    templateUrl: './select-event-dialog.component.html',
+    styleUrls: ['./select-event-dialog.component.scss'],
+    standalone: false
 })
 export class SelectEventDialogComponent implements OnInit {
 

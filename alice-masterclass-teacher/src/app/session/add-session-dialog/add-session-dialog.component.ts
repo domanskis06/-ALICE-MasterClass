@@ -6,9 +6,10 @@ import { EventAPI, ApiService } from 'src/app/shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
-  selector: 'app-add-session-dialog',
-  templateUrl: './add-session-dialog.component.html',
-  styleUrls: ['./add-session-dialog.component.scss']
+    selector: 'app-add-session-dialog',
+    templateUrl: './add-session-dialog.component.html',
+    styleUrls: ['./add-session-dialog.component.scss'],
+    standalone: false
 })
 export class AddSessionDialogComponent implements OnInit {
 
