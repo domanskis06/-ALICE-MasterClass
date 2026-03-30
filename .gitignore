@@ -14,3 +14,5 @@ Thumbs.db
 
 # Node dependencies (for all app folders)
 **/node_modules/
+
+alice-masterclass-django/.venv/

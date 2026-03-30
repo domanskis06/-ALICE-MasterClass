@@ -1,6 +1,0 @@
-#!/home/szymon/Desktop/new_alice/alice_szymon/alice-masterclass-django/.venv/bin/python3
-import sys
-from piptools.scripts.sync import cli
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(cli())
