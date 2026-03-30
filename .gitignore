@@ -16,3 +16,6 @@ Thumbs.db
 **/node_modules/
 
 alice-masterclass-django/.venv/
+
+.venv/
+alice-masterclass-django/.venv/
