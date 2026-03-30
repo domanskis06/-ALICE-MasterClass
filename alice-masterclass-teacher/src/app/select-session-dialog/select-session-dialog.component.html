@@ -1,15 +1,17 @@
 <mat-dialog-content>
-	<form [formGroup]="form">
+  <form [formGroup]="form">
     <mat-form-field appearance="fill">
       <mat-label>Select Session</mat-label>
       <mat-select formControlName="session">
-        <mat-option *ngFor="let s of sessions;" [value]="s.id"> {{ s.name }} </mat-option>
+        @for (s of sessions; track s) {
+          <mat-option [value]="s.id"> {{ s.name }} </mat-option>
+        }
       </mat-select>
     </mat-form-field>
-	</form>
+  </form>
 </mat-dialog-content>
 <mat-dialog-actions align="center">
   <app-spinner-container [loading]="loading">
-		<button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onProceedClick()">Proceed</button>
-	</app-spinner-container>
+    <button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onProceedClick()">Proceed</button>
+  </app-spinner-container>
 </mat-dialog-actions>

@@ -1,15 +1,17 @@
 <mat-dialog-content>
-	<form [formGroup]="form">
+  <form [formGroup]="form">
     <mat-form-field appearance="fill">
       <mat-label>Select Event</mat-label>
       <mat-select formControlName="event">
-        <mat-option *ngFor="let e of events;" [value]="e.id"> {{ e.name }} </mat-option>
+        @for (e of events; track e) {
+          <mat-option [value]="e.id"> {{ e.name }} </mat-option>
+        }
       </mat-select>
     </mat-form-field>
-	</form>
+  </form>
 </mat-dialog-content>
 <mat-dialog-actions align="center">
   <app-spinner-container [loading]="loading">
-		<button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onProceedClick()">Proceed</button>
-	</app-spinner-container>
+    <button mat-raised-button color="primary" [disabled]="loading || form.invalid" (click)="onProceedClick()">Proceed</button>
+  </app-spinner-container>
 </mat-dialog-actions>

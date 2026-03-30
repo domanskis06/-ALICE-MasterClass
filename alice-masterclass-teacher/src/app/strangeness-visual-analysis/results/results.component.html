@@ -27,31 +27,47 @@
         <ng-container matColumnDef="kaonMasses">
           <th mat-header-cell *matHeaderCellDef>Kaon Masses</th>
           <td mat-cell *matCellDef="let element;">
-            [<span *ngFor="let item of element.k0; let lastElm = last;">{{ item | number:'1.3-3'}}<span *ngIf="!lastElm">,</span></span>]
+            [@for (item of element.k0; track item; let lastElm = $last) {
+            <span>{{ item | number:'1.3-3'}}@if (!lastElm) {
+              <span>,</span>
+            }</span>
+            }]
           </td>
         </ng-container>
 
         <ng-container matColumnDef="lambdaMasses">
           <th mat-header-cell *matHeaderCellDef>Lambda Masses</th>
           <td mat-cell *matCellDef="let element;">
-            [<span *ngFor="let item of element.lambda; let lastElm = last;">{{ item | number:'1.3-3'}}<span *ngIf="!lastElm">,</span></span>]
+            [@for (item of element.lambda; track item; let lastElm = $last) {
+            <span>{{ item | number:'1.3-3'}}@if (!lastElm) {
+              <span>,</span>
+            }</span>
+            }]
           </td>
         </ng-container>
 
         <ng-container matColumnDef="antiLambdaMasses">
           <th mat-header-cell *matHeaderCellDef>Anti-Lambda Masses</th>
           <td mat-cell *matCellDef="let element;">
-            [<span *ngFor="let item of element.antilambda; let lastElm = last;">{{ item | number:'1.3-3'}}<span *ngIf="!lastElm">,</span></span>]
+            [@for (item of element.antilambda; track item; let lastElm = $last) {
+            <span>{{ item | number:'1.3-3'}}@if (!lastElm) {
+              <span>,</span>
+            }</span>
+            }]
           </td>
         </ng-container>
 
         <ng-container matColumnDef="xiMasses">
           <th mat-header-cell *matHeaderCellDef>Xi Masses</th>
           <td mat-cell *matCellDef="let element;">
-            [<span *ngFor="let item of element.xi; let lastElm = last;">{{ item | number:'1.3-3'}}<span *ngIf="!lastElm">,</span></span>]
+            [@for (item of element.xi; track item; let lastElm = $last) {
+            <span>{{ item | number:'1.3-3'}}@if (!lastElm) {
+              <span>,</span>
+            }</span>
+            }]
           </td>
         </ng-container>
-    
+
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
