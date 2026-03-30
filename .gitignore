@@ -1,0 +1,16 @@
+# Never commit OKD secret backups (contain credentials)
+okd-secrets-backup/
+*-BACKUP.yaml
+*-backup.yaml
+*.secret-backup
+
+# Python cache/artifacts
+**/__pycache__/
+*.py[cod]
+
+# macOS/Windows junk
+.DS_Store
+Thumbs.db
+
+# Node dependencies (for all app folders)
+**/node_modules/
