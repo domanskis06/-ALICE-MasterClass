@@ -51,7 +51,10 @@
     "CLUSTER_SIZE": "Cluster Size",
     "S": "S",
     "M": "M",
-    "L": "L"
+    "L": "L",
+    "CAMERA": "Camera",
+    "CAMERA_CENTERED": "Centered camera",
+    "CAMERA_FREE": "Free camera"
   },
   "SELECT_DATASET_DIALOG": {
     "TEXT": "Please select dataset:",

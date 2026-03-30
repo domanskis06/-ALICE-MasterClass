@@ -1,6 +1,6 @@
 <mat-card appearance="outlined" fxLayout="column">
-  <mat-card-title fxLayout="row" fxLayoutAlign="space-between start">
-    <span class="title">
+  <mat-card-title fxLayout="row" fxLayoutAlign="space-between center">
+    <span class="title" fxLayout="row" fxLayoutAlign="start center" fxLayoutGap="16px">
       <ng-content></ng-content>
     </span>
     <button mat-icon-button aria-label="Options for Event Display" (click)="drawer.toggle()">
@@ -9,7 +9,7 @@
   </mat-card-title>
   <mat-card-content>
     <mat-drawer-container>
-      <mat-drawer #drawer class="sidenav" mode="side" position="end">
+      <mat-drawer #drawer class="sidenav" mode="side" position="end" [opened]="sidebarOpened" (openedChange)="sidebarOpened = $event">
         <div class="options">
           <h4>{{ 'EVENT_DISPLAY.VISIBILITY' | translate }}</h4>
           <div fxLayout="column" fxLayoutGap="8px">
@@ -36,6 +36,11 @@
             <mat-radio-button [value]="2">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
             <mat-radio-button [value]="5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
           </mat-radio-group>
+          <h4>Camera</h4>
+          <mat-radio-group [(ngModel)]="cameraMode" (change)="onCameraModeChange()" fxLayout="column" fxLayoutGap="4px">
+            <mat-radio-button value="centered">Centered</mat-radio-button>
+            <mat-radio-button value="free">Free</mat-radio-button>
+          </mat-radio-group>
         </div>
       </mat-drawer>
       <mat-drawer-content>
@@ -43,8 +48,33 @@
           <button [disabled]="previousEventButtonDisabled" fxFlexAlign="center" (click)="onPreviousEventClick()" mat-icon-button aria-label="Previous Event button">
             <mat-icon>chevron_left</mat-icon>
           </button>
-          <div id="render-area" fxFlex="1 0.5 calc(100%-100px)">
-            <canvas #canvas (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)" (pointerleave)="onPointerLeave()"></canvas>
+          <div id="render-area" fxFlex="1 0.5 calc(100%-100px)" (pointerleave)="onPointerLeave()" tabindex="0">
+            <canvas #canvas (pointerdown)="onPointerDown($event); $event.currentTarget.parentElement?.focus()" (pointermove)="onPointerMove($event)" (pointerleave)="onPointerLeave()"></canvas>
+            @if (vertexMarkerTooltip) {
+              <div class="vertex-tooltip" [style.left.px]="vertexMarkerTooltip.x" [style.top.px]="vertexMarkerTooltip.y">
+                {{ vertexMarkerTooltip.label }}
+              </div>
+            }
+            @if (trackTooltip) {
+              <div class="vertex-tooltip track-tooltip" [style.left.px]="trackTooltip.x" [style.top.px]="trackTooltip.y">
+                {{ trackTooltip.label }}
+              </div>
+            }
+            @if (vertexPanelOpen) {
+              <div class="vertex-panel" [style.left.px]="vertexPanelX" [style.top.px]="vertexPanelY">
+                <div class="vertex-panel-header" (mousedown)="onVertexPanelHeaderMouseDown($event)">
+                  <span class="vertex-panel-title">{{ vertexPanelOpen.label }}</span>
+                  <button mat-icon-button (click)="closeVertexPanel()" aria-label="Close">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <div class="vertex-panel-body">
+                  <div class="vertex-paste-area">
+                    <span class="vertex-paste-hint">Placeholder</span>
+                  </div>
+                </div>
+              </div>
+            }
             <div id="view0" [class.landscape]="landscape" [class.noside]="!sideViewsShown">{{ 'EVENT_DISPLAY.VIEW_3D' | translate }}</div>
             @if (sideViewsShown) {
               <div id="view1" [class.landscape]="landscape">{{ 'EVENT_DISPLAY.VIEW_1' | translate }}</div>

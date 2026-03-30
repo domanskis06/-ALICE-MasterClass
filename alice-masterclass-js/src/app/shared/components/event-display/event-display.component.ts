@@ -1,6 +1,6 @@
-import { Component, ElementRef, Input, Output, AfterViewInit, ViewChild, EventEmitter, HostBinding, OnDestroy } from '@angular/core';
+import { Component, ElementRef, Input, Output, AfterViewInit, ViewChild, EventEmitter, HostBinding, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Observable, Subscription, animationFrameScheduler, scheduled } from 'rxjs';
-import { repeat, map, shareReplay } from 'rxjs/operators'; // Dodano brakujące operatory
+import { repeat } from 'rxjs/operators';
 import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry';
@@ -12,19 +12,25 @@ import { Event, Track, TrackType } from '../../models';
 import { trackColor, clusterColor, positiveTrackColor, negativeTrackColor, bachelorTrackColor, highlightColor } from '../../globals';
 
 @Component({
-    selector: 'app-event-display',
-    templateUrl: './event-display.component.html',
-    styleUrls: ['./event-display.component.scss'],
-    standalone: false
+  selector: 'app-event-display',
+  templateUrl: './event-display.component.html',
+  styleUrls: ['./event-display.component.scss'],
+  standalone: false
 })
 export class EventDisplayComponent implements AfterViewInit, OnDestroy {
+  // Use GL_LINES primitive instead of meshes (faster, but can't set line width!)
   private readonly TRACKS_USE_GL_LINES: boolean = false;
+
+  // Use points instead of spheres (faster)
   private readonly CLUSTERS_USE_POINTS: boolean = true;
+
   private readonly CLUSTER_TEXTURE: string = 'assets/models/cluster.png';
+
   private readonly CLICK_HIGHLIGHT_DURATION = 200;
 
+  // Constants
   @HostBinding("style.--primary-axis-ratio")
-  readonly PRIMARY_AXIS_RATIO: number = 1 / 1.61803398875;
+  readonly PRIMARY_AXIS_RATIO: number = 1 / 1.61803398875; // Golden ratio
   @HostBinding("style.--secondary-axis-ratio")
   readonly SECONDARY_AXIS_RATIO: number = 1 / 2;
 
@@ -32,208 +38,250 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   static readonly nearClippingPlane: number = 0.01;
   static readonly farClippingPlane: number = 8000;
   static readonly objectScale: number = 1.0e-2;
+
   static readonly lineSegments: number = 50;
 
-  static readonly trackColor = new THREE.Color(trackColor);
-  static readonly clusterColor = new THREE.Color(clusterColor);
-  static readonly positiveTrackColor = new THREE.Color(positiveTrackColor);
-  static readonly negativeTrackColor = new THREE.Color(negativeTrackColor);
-  static readonly bachelorTrackColor = new THREE.Color(bachelorTrackColor);
-  static readonly highlightColor = new THREE.Color(highlightColor);
+  private static readonly VERTEX_MARKER_RADIUS = (0.35 * 2 / 3) * EventDisplayComponent.objectScale; // ~2.3 mm (1/3 smaller)
+  private static readonly MARKER_PROXIMITY_PX = 155;
+  private static readonly PAN_SPEED_FACTOR = 0.005;
+  private static readonly WHEEL_PAN_FACTOR = 0.03;
+  private static readonly MOUSE_DRAG_PAN_FACTOR = 0.0008;
+  private static readonly FADE_OPACITY = 0.25;
+  private static readonly DETECTOR_FADE_OPACITY = 0.08;
+  private static readonly LAMBDA_MASS_MIN = 1.07;
+  private static readonly LAMBDA_MASS_MAX = 1.16;
+  private static readonly XI_MASS_MIN = 1.25;
+  private static readonly XI_MASS_MAX = 1.40;
 
-  private trackMaterial: THREE.Material;
-  private postiveTrackMaterial: THREE.Material;
-  private negativeTrackMaterial: THREE.Material;
-  private bachelorTrackMaterial: THREE.Material;
-  private highlightTrackMaterial: THREE.Material;
-  private hoverTrackMaterial: THREE.Material;
-  private pointsMaterial: THREE.Material;
+  static readonly trackColor: THREE.Color = new THREE.Color(trackColor);
+  static readonly clusterColor: THREE.Color = new THREE.Color(clusterColor);
+  static readonly positiveTrackColor: THREE.Color = new THREE.Color(positiveTrackColor);
+  static readonly negativeTrackColor: THREE.Color = new THREE.Color(negativeTrackColor);
+  static readonly bachelorTrackColor: THREE.Color = new THREE.Color(bachelorTrackColor);
+  static readonly highlightColor: THREE.Color = new THREE.Color(highlightColor);
+
+  private trackMaterial: THREE.Material = null;
+  private postiveTrackMaterial: THREE.Material = null;
+  private negativeTrackMaterial: THREE.Material = null;
+  private bachelorTrackMaterial: THREE.Material = null;
+  private highlightTrackMaterial: THREE.Material = null;
+  private cascadeHoverTrackMaterial: THREE.Material = null;
+  private cascadeProtonMaterial: THREE.Material = null;
+  private pointsMaterial: THREE.Material = null;
 
   @Input()
   get trackWidth(): number { return this._trackWidth; }
-  get trackHighlightWidth(): number { return 2 * this.trackWidth };
-  get trackDecayWidth(): number { return 1.2 * this.trackWidth };
+  get trackHighlightWidth(): number { return 6 * this.trackWidth; }
+  get trackDecayWidth(): number { return 1.2 * this.trackWidth; }
 
-  set trackWidth(value: number) {
-    this._trackWidth = value;
-    // Rzutowanie na LineMaterial, aby uzyskać dostęp do pola linewidth
-    if (this.trackMaterial instanceof LineMaterial) {
+  set trackWidth(trackWidth: number) {
+    this._trackWidth = trackWidth;
+    if (this.trackMaterial && (this.trackMaterial as LineMaterial).linewidth !== undefined) {
       (this.trackMaterial as LineMaterial).linewidth = this.trackWidth;
       (this.postiveTrackMaterial as LineMaterial).linewidth = this.trackDecayWidth;
       (this.negativeTrackMaterial as LineMaterial).linewidth = this.trackDecayWidth;
       (this.bachelorTrackMaterial as LineMaterial).linewidth = this.trackDecayWidth;
       (this.highlightTrackMaterial as LineMaterial).linewidth = this.trackHighlightWidth;
-      (this.hoverTrackMaterial as LineMaterial).linewidth = this.trackWidth * 1.8;
+      (this.cascadeHoverTrackMaterial as LineMaterial).linewidth = this.trackHighlightWidth;
+      if (this.cascadeProtonMaterial) (this.cascadeProtonMaterial as LineMaterial).linewidth = this.trackHighlightWidth;
     }
   }
   private _trackWidth: number = 1;
 
   @Input()
   get clusterSize(): number { return this._clusterSize; }
-  set clusterSize(value: number) {
-    this._clusterSize = value;
-    if (this.CLUSTERS_USE_POINTS && this.pointsMaterial instanceof THREE.PointsMaterial) {
-      (this.pointsMaterial as THREE.PointsMaterial).size = this._clusterSize;
+  set clusterSize(clusterSize: number) {
+    this._clusterSize = clusterSize;
+    if (this.CLUSTERS_USE_POINTS && this.pointsMaterial) {
+      (this.pointsMaterial as THREE.PointsMaterial).size = this.clusterSize;
     } else {
-      this.setSizeRecursive(this.clusters, this._clusterSize);
+      this.setSizeRecursive(this.clusters, this.clusterSize);
     }
   }
   private _clusterSize: number = 0.1;
 
   private setSizeRecursive(object: THREE.Object3D, value: number) {
-    object.traverse((o: any) => {
-      if (o.isMesh) {
-        o.scale.set(value, value, value);
+    object.traverse((o: THREE.Object3D) => {
+      if ((o as any).isMesh === true) {
+        (o as THREE.Mesh).scale.set(value, value, value);
       }
     });
   }
 
   loading: boolean = false;
-  private trackHoverObj: any = null;
-  private trackHoverOverlayObj: THREE.Object3D | null = null;
+  sidebarOpened: boolean = true;
+  cameraMode: 'centered' | 'free' = 'centered';
+  private trackHoverObj: THREE.Object3D = null;
+  private trackHoverOrigMaterial: THREE.Material = null;
+  private decayGroupHovered: THREE.Object3D | null = null;
+  private decayHoverOrigMaterials: THREE.Material[] = [];
+  private cascadeHoverActive: boolean = false;
+  vertexMarkerTooltip: { label: string; x: number; y: number } | null = null;
+  trackTooltip: { label: string; x: number; y: number } | null = null;
+  vertexPanelOpen: { label: string } | null = null;
+  vertexPanelX: number = 0;
+  vertexPanelY: number = 0;
+  vertexPanelDragging = false;
+  vertexPanelDragOffsetX = 0;
+  vertexPanelDragOffsetY = 0;
+  private cascadeMarkerEnhanced = false;
+  private cascadeMarkerOrigColors: number[] = [];
+  private cascadeMarkerOrigScales: number[] = [];
 
-  private scene = new THREE.Scene();
-  private axes = new THREE.Group();
-  private lights = new THREE.Group();
-  private camera3D!: THREE.PerspectiveCamera;
-  private cam3DVP = new THREE.Vector4();
-  private cameraRphi!: THREE.PerspectiveCamera;
-  private camRphiVP = new THREE.Vector4();
-  private cameraRhoz!: THREE.PerspectiveCamera;
-  private camRhozVP = new THREE.Vector4();
-  private renderer!: THREE.WebGLRenderer;
-  private controls!: OrbitControls;
+  // 3D
+  private scene: THREE.Scene = new THREE.Scene();
 
-  private tracks = new THREE.Object3D();
-  private decays = new THREE.Object3D();
-  private clusters = new THREE.Object3D();
+  private axes: THREE.Group = (() => {
+    const g = new THREE.Group();
+    g.visible = false;
+    return g;
+  })();
+  private lights: THREE.Group = new THREE.Group();
 
-  private loaderGLTF = new GLTFLoader();
-  private loaderSVG = new SVGLoader();
-  private detector = new THREE.Group();
+  private camera3D: THREE.PerspectiveCamera;
+  private cam3DVP: THREE.Vector4 = new THREE.Vector4();
+  private cameraRphi: THREE.PerspectiveCamera;
+  private camRphiVP: THREE.Vector4 = new THREE.Vector4();
+  private cameraRhoz: THREE.PerspectiveCamera;
+  private camRhozVP: THREE.Vector4 = new THREE.Vector4();
+  private renderer: THREE.WebGLRenderer;
+  private controls: OrbitControls;
+
+  private tracks: THREE.Object3D = new THREE.Object3D();
+  private decays: THREE.Object3D = new THREE.Object3D();
+  private clusters: THREE.Object3D = new THREE.Object3D();
+  private cascadeVertexMarkers: THREE.Object3D = new THREE.Object3D();
+  private cascadeConnectorLine: Line2 | null = null;
+  private cascadeXiLine: Line2 | null = null;
+  private lambdaFlightLine2Track: Line2 | null = null;
+  private keysDown: { [key: string]: boolean } = {};
+  private panVec = new THREE.Vector3();
+  private panRight = new THREE.Vector3();
+  private panDir = new THREE.Vector3();
+  private isMousePanning = false;
+  private lastMousePanX = 0;
+  private lastMousePanY = 0;
+
+  // Loaders
+  private loaderGLTF: GLTFLoader = new GLTFLoader();
+  private loaderSVG: SVGLoader = new SVGLoader();
+
+  // Detector
+  private detector: THREE.Group = new THREE.Group();
   private detectorScene: THREE.Group | null = null;
-  private detectorSideViews = new THREE.Group();
-  private detectorSideViewsRphi = new THREE.Group();
-  private detectorSideViewsRhoz = new THREE.Group();
+
+  private detectorSideViews: THREE.Group = new THREE.Group();
+  private detectorSideViewsRphi: THREE.Group = new THREE.Group();
+  private detectorSideViewsRhoz: THREE.Group = new THREE.Group();
 
   @Input()
   get landscape(): boolean { return this._landscape; }
-  set landscape(value: boolean) {
-    this._landscape = value;
+  set landscape(landscape: boolean) {
+    this._landscape = landscape;
     this.resize(true);
   }
-  private _landscape: boolean = true;
+  private _landscape: boolean;
 
-  @ViewChild('canvas') canvasRef!: ElementRef;
-  private get canvas(): HTMLCanvasElement { return this.canvasRef.nativeElement; }
-  private get aspectRatio(): number { return this.canvas.clientWidth / this.canvas.clientHeight; }
+  @ViewChild('canvas')
+  canvasRef: ElementRef;
 
-  @Input() previousEventButtonDisabled: boolean = false;
-  @Input() nextEventButtonDisabled: boolean = false;
+  private get canvas(): HTMLCanvasElement {
+    return this.canvasRef.nativeElement;
+  }
+
+  private get aspectRatio(): number {
+    return this.canvas.clientWidth / this.canvas.clientHeight;
+  }
+
+  @Input()
+  get detectorModel(): string { return this._detectorModel; }
+  set detectorModel(detectorModel: string) {
+    this._detectorModel = detectorModel;
+    this.detector.clear();
+    this.detectorScene = null;
+    this.loading = true;
+    this.loaderGLTF.load(this._detectorModel, (gltf: GLTF) => {
+      this.detectorScene = gltf.scene;
+      this.detector.add(this.detectorScene);
+      this.detectorScene.updateMatrixWorld(true);
+      this.setDetectorMaterialsWithPolygonOffset(this.detectorScene, 0.22);
+      this.loading = false;
+    });
+  }
+  private _detectorModel: string;
+
+  private setDetectorMaterialsWithPolygonOffset(object: THREE.Object3D, opacity: number) {
+    const tempVec = new THREE.Vector3();
+    const meshes: THREE.Mesh[] = [];
+    object.traverse((o: THREE.Object3D) => {
+      if ((o as any).isMesh === true) meshes.push(o as THREE.Mesh);
+    });
+    meshes.sort((a, b) => {
+      a.getWorldPosition(tempVec);
+      const da = tempVec.length();
+      b.getWorldPosition(tempVec);
+      const db = tempVec.length();
+      return da - db;
+    });
+    meshes.forEach((mesh, layerIndex) => {
+      mesh.renderOrder = layerIndex;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((mat: THREE.Material) => {
+        if (!mat) return;
+        (mat as any).transparent = true;
+        (mat as any).opacity = opacity;
+        (mat as any).side = THREE.DoubleSide;
+        (mat as any).depthWrite = false;
+        (mat as any).alphaTest = 0.05;
+        (mat as any).polygonOffset = true;
+        (mat as any).polygonOffsetFactor = -layerIndex;
+        (mat as any).polygonOffsetUnits = -layerIndex;
+      });
+    });
+  }
+
   @Input()
   get detectorRphi(): string { return this._detectorRphi; }
   set detectorRphi(detectorRphi: string) {
     this._detectorRphi = detectorRphi;
     this.detectorSideViewsRphi.clear();
-    if (!detectorRphi) return;
-
-    this.loading = true;
-    this.loaderSVG.load(detectorRphi, (data: SVGResult) => {
-      const group = this.svgToGroup(data);
+    const finalize_rphi = (group: THREE.Group) => {
       group.scale.set(0.18, 0.18, 0.18);
       group.renderOrder = -1;
       this.detectorSideViewsRphi.add(group);
+    };
+    this.loading = true;
+    this.loaderSVG.load(this._detectorRphi, (data: SVGResult) => {
+      this.addSVGToScene(data, finalize_rphi);
       this.loading = false;
     });
   }
-  private _detectorRphi: string = null;
+  private _detectorRphi: string;
 
   @Input()
   get detectorRhoz(): string { return this._detectorRhoz; }
   set detectorRhoz(detectorRhoz: string) {
     this._detectorRhoz = detectorRhoz;
     this.detectorSideViewsRhoz.clear();
-    if (!detectorRhoz) return;
-
-    this.loading = true;
-    this.loaderSVG.load(detectorRhoz, (data: SVGResult) => {
-      const group = this.svgToGroup(data);
+    const finalize_rhoz = (group: THREE.Group) => {
       group.rotateY(0.5 * Math.PI);
       group.scale.set(0.15, 0.15, 0.15);
       group.renderOrder = -1;
       this.detectorSideViewsRhoz.add(group);
-      this.loading = false;
-    });
-  }
-  private _detectorRhoz: string = null;
-
-  onPointerDown(event: PointerEvent): void {
-    event.preventDefault();
-    const hits = this.findIntersect(event);
-    const hit = hits.find((h) => h.object?.userData && !(h.object as any).userData.__hoverOverlay);
-
-    if (hit?.object?.userData && this.decays.visible) {
-      this.trackClickedEvent.emit(hit.object.userData as Track);
-    }
-  }
-
-  onPointerMove(event: PointerEvent): void {
-    event.preventDefault();
-    const hits = this.findIntersect(event);
-    const hit = hits.find((h) => h.object?.userData && !(h.object as any).userData.__hoverOverlay);
-
-    if (hit?.object?.userData && this.decays.visible) {
-      if (this.trackHoverObj !== hit.object) {
-        this.clearTrackHover();
-        this.trackHoverObj = hit.object;
-        const overlay = this.createHoverOverlay(hit.object as THREE.Object3D);
-        if (overlay && (hit.object as any).parent) {
-          (hit.object as any).parent.add(overlay);
-          this.trackHoverOverlayObj = overlay;
-        }
-      }
-      return;
-    }
-
-    this.clearTrackHover();
-  }
-
-  onPointerLeave(): void {
-    this.clearTrackHover();
-  }
-
-  onPreviousEventClick(): void { this.previousEvent.emit(); }
-  onNextEventClick(): void { this.nextEvent.emit(); }
-
-  @Input()
-  set detectorModel(value: string) {
-    this._detectorModel = value;
-    this.detector.clear();
+    };
     this.loading = true;
-    this.loaderGLTF.load(value, (gltf: GLTF) => {
-      this.detectorScene = gltf.scene;
-      this.setOpacityRecursive(this.detectorScene, 0.3);
-      this.detector.add(this.detectorScene);
+    this.loaderSVG.load(this._detectorRhoz, (data: SVGResult) => {
+      this.addSVGToScene(data, finalize_rhoz);
       this.loading = false;
     });
   }
-  private _detectorModel!: string;
+  private _detectorRhoz: string;
 
-  private setOpacityRecursive(object: THREE.Object3D, value: number) {
-    object.traverse((o: any) => {
-      if (o.isMesh) {
-        o.material.transparent = true;
-        o.material.opacity = value;
-        o.material.side = THREE.DoubleSide;
-      }
-    });
-  }
-
-  private svgToGroup(data: SVGResult): THREE.Group {
+  private addSVGToScene(data: SVGResult, finalize: (g: THREE.Group) => void) {
     const paths = data.paths;
     const group = new THREE.Group();
     for (let path of paths) {
-      const fillColor = path.userData?.style.fill;
+      const fillColor = path.userData?.style?.fill;
       const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color().setStyle(fillColor),
         side: THREE.DoubleSide,
@@ -241,121 +289,280 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       });
       const shapes = path.toShapes(true);
       for (let shape of shapes) {
-        // Zmiana na ShapeGeometry
         const geometry = new THREE.ShapeGeometry(shape);
         const mesh = new THREE.Mesh(geometry, material);
         group.add(mesh);
       }
     }
-    return group;
+    finalize(group);
   }
 
-  @Input() set sideViewsShown(value: boolean) { this._sideViewsShown = value; this.resize(true); }
+  @Input()
   get sideViewsShown(): boolean { return this._sideViewsShown; }
-  private _sideViewsShown: boolean = true;
+  set sideViewsShown(sideViewsShown: boolean) {
+    this._sideViewsShown = sideViewsShown;
+    this.resize(true);
+  }
+  private _sideViewsShown: boolean;
 
-  @Input() set axesShown(value: boolean) { this._axesShown = value; this.axes.visible = value; }
-  get axesShown(): boolean { return this._axesShown; }
-  private _axesShown: boolean = true;
+  @Input()
+  get axesShown(): boolean { return this.axes.visible; }
+  set axesShown(axesShown: boolean) {
+    this.axes.visible = axesShown;
+  }
 
-  @Input() set detectorShown(value: boolean) { this._detectorShown = value; this.detector.visible = value; this.detectorSideViews.visible = value; }
-  get detectorShown(): boolean { return this._detectorShown; }
-  private _detectorShown: boolean = true;
+  @Input()
+  get detectorShown(): boolean { return this.detector.visible; }
+  set detectorShown(detectorShown: boolean) {
+    this.detector.visible = detectorShown;
+    this.detectorSideViews.visible = detectorShown;
+  }
 
-  @Input() set tracksShown(value: boolean) { this._tracksShown = value; this.tracks.visible = value; }
-  get tracksShown(): boolean { return this._tracksShown; }
-  private _tracksShown: boolean = true;
-  @Input() hasClusters: boolean = false;
-  @Input() set clustersShown(value: boolean) { this._clustersShown = value; this.clusters.visible = value; }
-  get clustersShown(): boolean { return this._clustersShown; }
-  private _clustersShown: boolean = true;
+  @Input()
+  get tracksShown(): boolean { return this.tracks.visible; }
+  set tracksShown(tracksShown: boolean) {
+    this.tracks.visible = tracksShown;
+  }
 
-  @Input() set decaysShown(value: boolean) { this._decaysShown = value; this.decays.visible = value; }
-  get decaysShown(): boolean { return this._decaysShown; }
-  private _decaysShown: boolean = true;
+  @Input()
+  hasClusters: boolean;
+
+  @Input()
+  get clustersShown(): boolean { return this.clusters.visible; }
+  set clustersShown(clustersShown: boolean) {
+    this.clusters.visible = clustersShown;
+  }
+
+  @Input()
+  get decaysShown(): boolean { return this.decays.visible; }
+  set decaysShown(decaysShown: boolean) {
+    this.decays.visible = decaysShown;
+    this.cascadeVertexMarkers.visible = decaysShown;
+  }
 
   private createLine(track: number[][], material: THREE.Material): THREE.Object3D {
-    const points: THREE.Vector3[] = track.map(p =>
-      new THREE.Vector3(p[0] * EventDisplayComponent.objectScale, p[1] * EventDisplayComponent.objectScale, p[2] * EventDisplayComponent.objectScale)
-    );
-
+    let mesh: THREE.Object3D;
+    const points: Array<THREE.Vector3> = [];
+    for (let point of track) {
+      points.push(new THREE.Vector3(
+        EventDisplayComponent.objectScale * point[0],
+        EventDisplayComponent.objectScale * point[1],
+        EventDisplayComponent.objectScale * point[2]
+      ));
+    }
     const spline = new THREE.CatmullRomCurve3(points);
     const vertices = spline.getPoints(EventDisplayComponent.lineSegments);
-
+    const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
+    mesh = new THREE.Line(geometry, material);
     if (this.TRACKS_USE_GL_LINES) {
-      const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
-      return new THREE.Line(geometry, material);
-    } else {
-      const points2: number[] = [];
-      vertices.forEach(v => points2.push(v.x, v.y, v.z));
-      const lineGeometry = new LineGeometry();
-      lineGeometry.setPositions(points2);
-      const mesh = new Line2(lineGeometry, material as LineMaterial);
-      mesh.computeLineDistances();
       return mesh;
     }
+    const points2 = [];
+    for (let v of vertices) {
+      points2.push(v.x, v.y, v.z);
+    }
+    const lineGeometry = new LineGeometry();
+    lineGeometry.setPositions(points2);
+    mesh = new Line2(lineGeometry, material as LineMaterial);
+    (mesh as Line2).computeLineDistances();
+    return mesh;
   }
 
-  @Input() set event(event: Event) {
+  private invariantMass(tracks: Track[]): number {
+    let E = 0, px = 0, py = 0, pz = 0;
+    for (const t of tracks) {
+      if (!t) return NaN;
+      E += t.E;
+      px += t.px;
+      py += t.py;
+      pz += t.pz;
+    }
+    const m2 = E * E - px * px - py * py - pz * pz;
+    return m2 > 0 ? Math.sqrt(m2) : NaN;
+  }
+
+  private getCascadeVertices(event: Event): { pos: number[]; label: string }[] {
+    const vertices: { pos: number[]; label: string }[] = [];
+    const decays = event.decays || [];
+    if (decays.length === 0) return vertices;
+    const decay = decays[0];
+    if (decay.length === 3) {
+      const [t0, t1, bach] = decay;
+      if (!t0?.trajectory?.length || !t1?.trajectory?.length || !bach?.trajectory?.length) return vertices;
+      const lambdaMass = this.invariantMass([t0, t1]);
+      const xiMass = this.invariantMass([t0, t1, bach]);
+      const lambdaOk = !isNaN(lambdaMass) && lambdaMass >= EventDisplayComponent.LAMBDA_MASS_MIN && lambdaMass <= EventDisplayComponent.LAMBDA_MASS_MAX;
+      const xiOk = !isNaN(xiMass) && xiMass >= EventDisplayComponent.XI_MASS_MIN && xiMass <= EventDisplayComponent.XI_MASS_MAX;
+      const v0Label = lambdaOk
+        ? (t0.sign < 0 ? 'Λ decay vertex (p + π⁻)' : 'Λ̄ decay vertex (p̄ + π⁺)')
+        : 'V0';
+      const vertex1Label = xiOk
+        ? (bach.sign < 0 ? 'Ξ⁻ decay vertex (π⁻ + Λ)' : 'Ξ⁺ decay vertex (π⁺ + Λ̄)')
+        : 'Vertex1';
+      const v0Pos = [
+        (t0.trajectory[0][0] + t1.trajectory[0][0]) / 2,
+        (t0.trajectory[0][1] + t1.trajectory[0][1]) / 2,
+        (t0.trajectory[0][2] + t1.trajectory[0][2]) / 2
+      ];
+      const vertex1Pos = [bach.trajectory[0][0], bach.trajectory[0][1], bach.trajectory[0][2]];
+      vertices.push({ pos: v0Pos, label: v0Label }, { pos: vertex1Pos, label: vertex1Label });
+    } else if (decay.length === 2) {
+      const [t0, t1] = decay;
+      if (!t0?.trajectory?.length || !t1?.trajectory?.length) return vertices;
+      const lambdaMass = this.invariantMass([t0, t1]);
+      const lambdaOk = !isNaN(lambdaMass) && lambdaMass >= EventDisplayComponent.LAMBDA_MASS_MIN && lambdaMass <= EventDisplayComponent.LAMBDA_MASS_MAX;
+      const hasProtonAndPion = (t0.sign > 0 && t1.sign < 0) || (t0.sign < 0 && t1.sign > 0);
+      if (!lambdaOk || !hasProtonAndPion) return vertices;
+      const v0Pos = [
+        (t0.trajectory[0][0] + t1.trajectory[0][0]) / 2,
+        (t0.trajectory[0][1] + t1.trajectory[0][1]) / 2,
+        (t0.trajectory[0][2] + t1.trajectory[0][2]) / 2
+      ];
+      const v0Label = t0.sign < 0 ? 'Λ decay vertex (p + π⁻)' : 'Λ̄ decay vertex (p̄ + π⁺)';
+      vertices.push({ pos: v0Pos, label: v0Label });
+    }
+    return vertices;
+  }
+
+  private getTrackLabel(track: Track): string {
+    if (track.type === TrackType.CASCADE_BACHELOR) return 'π⁻ track';
+    if (track.sign > 0) return 'proton track';
+    if (track.sign < 0) return 'π⁻ track';
+    return 'track';
+  }
+
+  private createVertexMarker(position: number[], label: string): THREE.Mesh {
+    const scale = EventDisplayComponent.objectScale;
+    const geometry = new THREE.SphereGeometry(EventDisplayComponent.VERTEX_MARKER_RADIUS, 16, 14);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xFF0000,
+      depthTest: false,
+      depthWrite: false
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(position[0] * scale, position[1] * scale, position[2] * scale);
+    mesh.renderOrder = 9999;
+    (mesh as any).userData = { vertexLabel: label };
+    return mesh;
+  }
+
+  @Input()
+  get event(): Event { return this._event; }
+  set event(event: Event) {
     this._event = event;
     this.tracks.clear();
     this.decays.clear();
     this.clusters.clear();
-    if (!event) return;
-
-    event.tracks.forEach(t => this.tracks.add(this.createLine(t.trajectory, this.trackMaterial)));
-
-    for (let particleList of event.decays) {
-      const decayObject = new THREE.Object3D();
-      particleList.forEach(track => {
-        let mat = this.trackMaterial;
-        if (track.type === TrackType.CASCADE_BACHELOR) mat = this.bachelorTrackMaterial;
-        else if (track.sign < 0) mat = this.negativeTrackMaterial;
-        else if (track.sign > 0) mat = this.postiveTrackMaterial;
-
-        const line = this.createLine(track.trajectory, mat);
-        line.userData = track;
-        decayObject.add(line);
-      });
-      this.decays.add(decayObject);
-      break;
+    this.cascadeVertexMarkers.clear();
+    if (this.cascadeConnectorLine) {
+      this.scene.remove(this.cascadeConnectorLine);
+      this.cascadeConnectorLine.geometry.dispose();
+      (this.cascadeConnectorLine.material as THREE.Material).dispose();
+      this.cascadeConnectorLine = null;
     }
-
-    if (event.clusters) {
-      const clusterPoints = event.clusters.map(p =>
-        new THREE.Vector3(p[0] * EventDisplayComponent.objectScale, p[1] * EventDisplayComponent.objectScale, p[2] * EventDisplayComponent.objectScale)
-      );
-      if (this.CLUSTERS_USE_POINTS) {
-        const geo = new THREE.BufferGeometry().setFromPoints(clusterPoints);
-        const pMesh = new THREE.Points(geo, this.pointsMaterial);
-        pMesh.renderOrder = 999;
-        this.clusters.add(pMesh);
+    if (this.cascadeXiLine) {
+      this.scene.remove(this.cascadeXiLine);
+      this.cascadeXiLine.geometry.dispose();
+      (this.cascadeXiLine.material as THREE.Material).dispose();
+      this.cascadeXiLine = null;
+    }
+    if (this.lambdaFlightLine2Track) {
+      this.scene.remove(this.lambdaFlightLine2Track);
+      this.lambdaFlightLine2Track.geometry.dispose();
+      (this.lambdaFlightLine2Track.material as THREE.Material).dispose();
+      this.lambdaFlightLine2Track = null;
+    }
+    this.cascadeMarkerEnhanced = false;
+    this.cascadeMarkerOrigColors = [];
+    this.closeVertexPanel();
+    this.loading = true;
+    if (this._event !== null) {
+      const cascadeVertices = this.getCascadeVertices(this._event);
+      for (const v of cascadeVertices) {
+        this.cascadeVertexMarkers.add(this.createVertexMarker(v.pos, v.label));
+      }
+      this.cascadeVertexMarkers.visible = this.decays.visible;
+      for (let track of this._event.tracks) {
+        const line = this.createLine(track.trajectory, this.trackMaterial);
+        this.tracks.add(line);
+      }
+      for (let particleList of this._event.decays) {
+        const decayObject = new THREE.Object3D();
+        for (let track of particleList) {
+          let material: THREE.Material;
+          if (track.type === TrackType.CASCADE_BACHELOR) {
+            material = this.bachelorTrackMaterial;
+          } else if (track.sign < 0) {
+            material = this.negativeTrackMaterial;
+          } else if (track.sign > 0) {
+            material = this.postiveTrackMaterial;
+          } else {
+            material = this.trackMaterial;
+          }
+          const line = this.createLine(track.trajectory, material);
+          (line as any).userData = { ...track, trackLabel: this.getTrackLabel(track) };
+          decayObject.add(line);
+        }
+        this.decays.add(decayObject);
+        break;
+      }
+      if (this._event.clusters && this._event.clusters.length > 0) {
+        const points: Array<THREE.Vector3> = [];
+        for (let point of this._event.clusters) {
+          points.push(new THREE.Vector3(
+            EventDisplayComponent.objectScale * point[0],
+            EventDisplayComponent.objectScale * point[1],
+            EventDisplayComponent.objectScale * point[2]
+          ));
+        }
+        if (this.CLUSTERS_USE_POINTS) {
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const pointsMesh = new THREE.Points(geometry, this.pointsMaterial);
+          pointsMesh.renderOrder = -1;
+          this.clusters.add(pointsMesh);
+        } else {
+          for (let point of points) {
+            const geometry = new THREE.SphereGeometry(this.clusterSize, 4, 4);
+            const sphereMesh = new THREE.Mesh(geometry, this.pointsMaterial as THREE.Material);
+            sphereMesh.position.set(point.x, point.y, point.z);
+            sphereMesh.scale.set(this.clusterSize, this.clusterSize, this.clusterSize);
+            this.clusters.add(sphereMesh);
+          }
+        }
       }
     }
+    this.loading = false;
   }
-  private _event: Event | null = null;
+  private _event: Event;
 
-  @Output() trackClickedEvent = new EventEmitter<Track>();
-  @Output() previousEvent = new EventEmitter();
-  @Output() nextEvent = new EventEmitter();
+  @Output()
+  trackClickedEvent: EventEmitter<Track> = new EventEmitter<Track>();
+
+  @Input()
+  previousEventButtonDisabled: boolean = false;
+
+  @Input()
+  nextEventButtonDisabled: boolean = false;
+
+  @Output()
+  previousEvent: EventEmitter<any> = new EventEmitter();
+
+  @Output()
+  nextEvent: EventEmitter<any> = new EventEmitter();
 
   private rendernig: Observable<number> = scheduled([0], animationFrameScheduler).pipe(repeat());
-  private renderingSubscription: Subscription | null = null;
+  private renderingSubscription: Subscription = null;
 
-  constructor() {
+  constructor(private cdr: ChangeDetectorRef) {
     const lineParams = { linewidth: this.trackWidth, resolution: new THREE.Vector2(1, 1) };
     this.trackMaterial = new LineMaterial({ color: EventDisplayComponent.trackColor, ...lineParams });
     this.postiveTrackMaterial = new LineMaterial({ color: EventDisplayComponent.positiveTrackColor, ...lineParams });
     this.negativeTrackMaterial = new LineMaterial({ color: EventDisplayComponent.negativeTrackColor, ...lineParams });
     this.bachelorTrackMaterial = new LineMaterial({ color: EventDisplayComponent.bachelorTrackColor, ...lineParams });
     this.highlightTrackMaterial = new LineMaterial({ color: EventDisplayComponent.highlightColor, ...lineParams });
-    this.hoverTrackMaterial = new LineMaterial({
-      color: 0xffeb3b,
-      transparent: true,
-      opacity: 0.75,
-      ...lineParams
-    });
-
+    const cascadeHoverParams = { linewidth: 6 * this.trackWidth, resolution: new THREE.Vector2(1, 1) };
+    this.cascadeHoverTrackMaterial = new LineMaterial({ color: 0x000000, ...cascadeHoverParams });
+    this.cascadeProtonMaterial = new LineMaterial({ color: 0x000080, ...cascadeHoverParams });
     this.pointsMaterial = new THREE.PointsMaterial({
       color: EventDisplayComponent.clusterColor,
       size: this.clusterSize,
@@ -364,135 +571,700 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  // --- Rendering & Resizing Logic (Fixing Resolution errors) ---
-  private render(): void {
-    this.resize(false);
-    this.controls.update();
-    const zoomz = this.controls.target.distanceTo(this.controls.object.position);
-    this.cameraRphi.zoom = this.cameraRhoz.zoom = 10 / zoomz;
-
-    const materials = [
-      this.trackMaterial,
-      this.postiveTrackMaterial,
-      this.negativeTrackMaterial,
-      this.bachelorTrackMaterial,
-      this.highlightTrackMaterial,
-      this.hoverTrackMaterial
-    ];
-
-    this.renderer.setScissorTest(this.sideViewsShown);
-    const oldVP = new THREE.Vector4();
-    this.renderer.getViewport(oldVP);
-
-    if (this.sideViewsShown) {
-      // Render side views with 3D detector hidden.
-      const detectorVisible = this.detector.visible;
-      this.detector.visible = false;
-
-      this.renderer.setViewport(this.camRphiVP);
-      this.renderer.setScissor(this.camRphiVP);
-      materials.forEach(m => (m as any).resolution?.set(this.camRphiVP.z, this.camRphiVP.w));
-      this.renderer.render(this.scene, this.cameraRphi);
-
-      this.renderer.setViewport(this.camRhozVP);
-      this.renderer.setScissor(this.camRhozVP);
-      materials.forEach(m => (m as any).resolution?.set(this.camRhozVP.z, this.camRhozVP.w));
-      this.renderer.render(this.scene, this.cameraRhoz);
-
-      this.detector.visible = detectorVisible;
-    }
-
-    // Render 3D view with side-view detector overlays hidden.
-    const detectorSideViewsVisible = this.detectorSideViews.visible;
-    this.detectorSideViews.visible = false;
-    this.renderer.setViewport(this.cam3DVP);
-    this.renderer.setScissor(this.cam3DVP);
-    materials.forEach(m => (m as any).resolution?.set(this.cam3DVP.z, this.cam3DVP.w));
-    this.renderer.render(this.scene, this.camera3D);
-    this.detectorSideViews.visible = detectorSideViewsVisible;
-  }
-
-  private resize(force: boolean) {
-    if (!this.canvas || !this.renderer) return;
-
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
-    const needResize = force || this.canvas.width !== width || this.canvas.height !== height;
-
-    if (needResize) {
-      this.renderer.setSize(width, height, false);
-
-      // Update cameras
-      if (this.camera3D) {
-        this.camera3D.aspect = this.aspectRatio;
+  private resize(force: boolean): void {
+    if (this.canvasRef && this.canvas && this.renderer) {
+      const parent = this.canvas.parentElement;
+      const displayWidth = parent.clientWidth;
+      const displayHeight = parent.clientHeight;
+      if (force || this.canvas.width !== displayWidth || this.canvas.height !== displayHeight) {
+        this.renderer.setSize(displayWidth, displayHeight);
+        if (this.sideViewsShown) {
+          if (this.landscape) {
+            const width3D = Math.ceil(this.canvas.clientWidth * this.PRIMARY_AXIS_RATIO);
+            const width = this.canvas.clientWidth - width3D;
+            const height = Math.ceil(this.canvas.clientHeight * this.SECONDARY_AXIS_RATIO);
+            this.camera3D.aspect = width3D / this.canvas.clientHeight;
+            this.cameraRphi.aspect = this.cameraRhoz.aspect = width / height;
+          } else {
+            const width = Math.ceil(this.canvas.clientWidth * this.SECONDARY_AXIS_RATIO);
+            const height3D = Math.ceil(this.canvas.clientHeight * this.PRIMARY_AXIS_RATIO);
+            const height = this.canvas.clientHeight - height3D;
+            this.camera3D.aspect = this.canvas.clientWidth / height3D;
+            this.cameraRphi.aspect = this.cameraRhoz.aspect = width / height;
+          }
+          this.cameraRphi.updateProjectionMatrix();
+          this.cameraRhoz.updateProjectionMatrix();
+        } else {
+          this.camera3D.aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+        }
         this.camera3D.updateProjectionMatrix();
       }
-
-      if (this.cameraRphi) {
-        this.cameraRphi.aspect = this.aspectRatio;
-        this.cameraRphi.updateProjectionMatrix();
-      }
-
-      if (this.cameraRhoz) {
-        this.cameraRhoz.aspect = this.aspectRatio;
-        this.cameraRhoz.updateProjectionMatrix();
-      }
-
-      // Update viewports for side views
-      if (this.sideViewsShown) {
-        const w = width;
-        const h = height;
-        const primaryRatio = this.PRIMARY_AXIS_RATIO;
-        const secondaryRatio = this.SECONDARY_AXIS_RATIO;
-
-        if (this.landscape) {
-          const w1 = Math.floor(w * primaryRatio);
-          const h1 = h;
-          const w2 = w - w1;
-          const h2 = Math.floor(h * secondaryRatio);
-          const h3 = h - h2;
-
-          this.cam3DVP.set(0, 0, w1, h1);
-          this.camRphiVP.set(w1, h2, w2, h3);
-          this.camRhozVP.set(w1, 0, w2, h2);
-        } else {
-          const w1 = w;
-          const h1 = Math.floor(h * primaryRatio);
-          const w2 = Math.floor(w * secondaryRatio);
-          const h2 = h - h1;
-          const w3 = w - w2;
-
-          this.cam3DVP.set(0, h2, w1, h1);
-          this.camRphiVP.set(0, 0, w2, h2);
-          this.camRhozVP.set(w2, 0, w3, h2);
-        }
-      } else {
-        this.cam3DVP.set(0, 0, width, height);
-      }
     }
   }
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     this.createScene();
     this.renderingSubscription = this.rendernig.subscribe(() => this.render());
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.renderingSubscription?.unsubscribe();
-    this.clearTrackHover();
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('pointerup', this.onPointerUp);
+    this.canvas?.removeEventListener('wheel', this.onWheel);
   }
 
-  private createScene() {
-    // Initialize renderer
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      logarithmicDepthBuffer: true,
-      antialias: true
+  onCameraModeChange(): void {
+    this.updateCameraMode();
+  }
+
+  private updateCameraMode(): void {
+    if (!this.controls) return;
+    if (this.cameraMode === 'centered') {
+      this.controls.enablePan = false;
+      this.controls.enableRotate = true;
+      this.controls.target.set(0, 0, 0);
+    } else {
+      this.controls.enablePan = true;
+      this.controls.enableRotate = false;
+    }
+    this.isMousePanning = false;
+  }
+
+  private onKeyDown = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement;
+    if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
+    this.keysDown[e.key] = true;
+  };
+
+  private onKeyUp = (e: KeyboardEvent) => {
+    this.keysDown[e.key] = false;
+  };
+
+  private onWheel = (e: WheelEvent) => {
+    if (this.cameraMode !== 'free' || !this.controls || !this.camera3D) return;
+    e.preventDefault();
+    const distance = this.controls.target.distanceTo(this.camera3D.position);
+    const step = (e.deltaY > 0 ? 1 : -1) * distance * EventDisplayComponent.WHEEL_PAN_FACTOR;
+    this.panDir.subVectors(this.controls.target, this.camera3D.position).normalize();
+    this.panVec.copy(this.panDir).multiplyScalar(step);
+    this.camera3D.position.add(this.panVec);
+  };
+
+  private onPointerUp = () => {
+    this.isMousePanning = false;
+  };
+
+  private applyMousePan(deltaX: number, deltaY: number): void {
+    if (!this.controls || !this.camera3D) return;
+    const distance = this.controls.target.distanceTo(this.camera3D.position);
+    const scale = distance * EventDisplayComponent.MOUSE_DRAG_PAN_FACTOR;
+    this.panDir.subVectors(this.controls.target, this.camera3D.position).normalize();
+    this.panRight.crossVectors(this.panDir, this.camera3D.up).normalize();
+    const up = this.camera3D.up.clone().normalize();
+    this.panVec.set(0, 0, 0);
+    this.panVec.addScaledVector(this.panRight, -deltaX * scale);
+    this.panVec.addScaledVector(up, deltaY * scale);
+    this.camera3D.position.add(this.panVec);
+    this.controls.target.add(this.panVec);
+  }
+
+  private applyKeyboardPan(): void {
+    if (this.cameraMode !== 'free' || !this.controls || !this.camera3D) return;
+    const focusEl = document.activeElement as HTMLElement;
+    if (focusEl?.tagName === 'INPUT' || focusEl?.tagName === 'TEXTAREA' || focusEl?.isContentEditable) return;
+    const k = this.keysDown;
+    if (!k['w'] && !k['W'] && !k['ArrowUp'] && !k['s'] && !k['S'] && !k['ArrowDown'] &&
+        !k['a'] && !k['A'] && !k['ArrowLeft'] && !k['d'] && !k['D'] && !k['ArrowRight'] &&
+        !k['q'] && !k['Q'] && !k['e'] && !k['E']) return;
+    const distance = this.controls.target.distanceTo(this.camera3D.position);
+    const step = distance * EventDisplayComponent.PAN_SPEED_FACTOR;
+    this.panDir.subVectors(this.controls.target, this.camera3D.position).normalize();
+    this.panRight.crossVectors(this.panDir, this.camera3D.up).normalize();
+    this.panVec.set(0, 0, 0);
+    if (k['w'] || k['W'] || k['ArrowUp']) this.panVec.add(this.panDir);
+    if (k['s'] || k['S'] || k['ArrowDown']) this.panVec.sub(this.panDir);
+    if (k['d'] || k['D'] || k['ArrowRight']) this.panVec.add(this.panRight);
+    if (k['a'] || k['A'] || k['ArrowLeft']) this.panVec.sub(this.panRight);
+    if (k['e'] || k['E']) this.panVec.y += 1;
+    if (k['q'] || k['Q']) this.panVec.y -= 1;
+    if (this.panVec.lengthSq() > 0) {
+      this.panVec.normalize().multiplyScalar(step);
+      this.camera3D.position.add(this.panVec);
+      this.controls.target.add(this.panVec);
+    }
+  }
+
+  private render(): void {
+    this.resize(false);
+    if (this.cameraMode === 'centered') {
+      this.controls.target.set(0, 0, 0);
+    } else {
+      this.applyKeyboardPan();
+    }
+    this.controls.update();
+    const zoomz = this.controls.target.distanceTo(this.controls.object.position);
+    this.cameraRphi.zoom = this.cameraRhoz.zoom = 10 / zoomz;
+    this.cameraRphi.updateProjectionMatrix();
+    this.cameraRhoz.updateProjectionMatrix();
+    this.renderer.setScissorTest(this.sideViewsShown);
+    const oldVP = new THREE.Vector4();
+    this.renderer.getViewport(oldVP);
+    if (this.sideViewsShown) {
+      if (this.landscape) {
+        const width3D = Math.ceil(oldVP.z * this.PRIMARY_AXIS_RATIO);
+        const width = oldVP.z - width3D;
+        const height = Math.ceil(oldVP.w * this.SECONDARY_AXIS_RATIO);
+        this.cam3DVP.set(oldVP.x, oldVP.y, width3D, oldVP.w);
+        this.camRphiVP.set(oldVP.x + width3D, oldVP.y, width, height);
+        this.camRhozVP.set(oldVP.x + width3D, oldVP.y + height, width, height);
+      } else {
+        const width = Math.ceil(oldVP.z * this.SECONDARY_AXIS_RATIO);
+        const height3D = Math.ceil(oldVP.w * this.PRIMARY_AXIS_RATIO);
+        const height = oldVP.w - height3D;
+        this.cam3DVP.set(oldVP.x, oldVP.y + height, oldVP.z, oldVP.w - height);
+        this.camRphiVP.set(oldVP.x, oldVP.y, width, height);
+        this.camRhozVP.set(oldVP.x + width, oldVP.y, width, height);
+      }
+      const isDetectorVisible = this.detector.visible;
+      this.detector.visible = false;
+      this.renderer.setViewport(this.camRphiVP);
+      this.renderer.setScissor(this.camRphiVP);
+      const materials = [this.trackMaterial, this.postiveTrackMaterial, this.negativeTrackMaterial, this.bachelorTrackMaterial, this.highlightTrackMaterial, this.cascadeHoverTrackMaterial, this.cascadeProtonMaterial];
+      if (this.cascadeConnectorLine?.material) materials.push(this.cascadeConnectorLine.material);
+      if (this.cascadeXiLine?.material) materials.push(this.cascadeXiLine.material);
+      if (this.lambdaFlightLine2Track?.material) materials.push(this.lambdaFlightLine2Track.material);
+      materials.forEach((m: any) => m.resolution?.set(this.camRphiVP.z, this.camRphiVP.w));
+      this.renderer.render(this.scene, this.cameraRphi);
+      this.renderer.setViewport(this.camRhozVP);
+      this.renderer.setScissor(this.camRhozVP);
+      materials.forEach((m: any) => m.resolution?.set(this.camRhozVP.z, this.camRhozVP.w));
+      this.renderer.render(this.scene, this.cameraRhoz);
+      this.detector.visible = isDetectorVisible;
+    } else {
+      this.cam3DVP.set(oldVP.x, oldVP.y, oldVP.z, oldVP.w);
+    }
+    const isDetectorSideviewVisible = this.detectorSideViews.visible;
+    this.detectorSideViews.visible = false;
+    this.renderer.setViewport(this.cam3DVP);
+    this.renderer.setScissor(this.cam3DVP);
+    const materials = [this.trackMaterial, this.postiveTrackMaterial, this.negativeTrackMaterial, this.bachelorTrackMaterial, this.highlightTrackMaterial, this.cascadeHoverTrackMaterial, this.cascadeProtonMaterial];
+    if (this.cascadeConnectorLine?.material) materials.push(this.cascadeConnectorLine.material);
+    if (this.cascadeXiLine?.material) materials.push(this.cascadeXiLine.material);
+    if (this.lambdaFlightLine2Track?.material) materials.push(this.lambdaFlightLine2Track.material);
+    materials.forEach((m: any) => m.resolution?.set(this.cam3DVP.z, this.cam3DVP.w));
+    this.renderer.render(this.scene, this.camera3D);
+    this.detectorSideViews.visible = isDetectorSideviewVisible;
+    this.renderer.setViewport(oldVP);
+    this.renderer.setScissor(oldVP);
+  }
+
+  onPointerDown(event: PointerEvent) {
+    if (this.cameraMode === 'free' && event.button === 0) {
+      this.isMousePanning = true;
+      this.lastMousePanX = event.clientX;
+      this.lastMousePanY = event.clientY;
+      return;
+    }
+    const intersects = this.findIntersect(event);
+    if (intersects.length === 0) return;
+    const obj = intersects[0].object as THREE.Mesh & { userData?: { vertexLabel?: string } };
+    if (obj.userData?.vertexLabel != null) {
+      const parent = this.canvas?.parentElement as HTMLElement;
+      if (parent) {
+        const rect = parent.getBoundingClientRect();
+        this.vertexPanelX = Math.max(0, event.clientX - rect.left - 20);
+        this.vertexPanelY = Math.max(0, event.clientY - rect.top - 20);
+      } else {
+        this.vertexPanelX = 16;
+        this.vertexPanelY = 16;
+      }
+      this.vertexPanelOpen = { label: obj.userData.vertexLabel };
+      return;
+    }
+    if (this.decays.visible) {
+      this.clearCascadeHover();
+      if (this.trackHoverObj === null) {
+        this.trackHoverObj = obj;
+        this.trackHoverOrigMaterial = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+        obj.material = this.highlightTrackMaterial;
+        const highlightStop = () => {
+          if (this.trackHoverObj !== null) {
+            (this.trackHoverObj as THREE.Mesh).material = this.trackHoverOrigMaterial;
+          }
+          this.trackHoverObj = null;
+          this.trackHoverOrigMaterial = null;
+        };
+        setTimeout(highlightStop, this.CLICK_HIGHLIGHT_DURATION);
+      }
+      this.trackClickedEvent.emit((obj as any).userData);
+    }
+  }
+
+  onPointerMove(event: PointerEvent) {
+    if (this.isMousePanning) {
+      const deltaX = event.clientX - this.lastMousePanX;
+      const deltaY = event.clientY - this.lastMousePanY;
+      this.lastMousePanX = event.clientX;
+      this.lastMousePanY = event.clientY;
+      this.applyMousePan(deltaX, deltaY);
+      return;
+    }
+    const intersects = this.findIntersect(event);
+    const first = intersects[0]?.object as THREE.Mesh & { userData?: { vertexLabel?: string; trackLabel?: string } };
+    const isMarkerByRaycast = first?.userData?.vertexLabel != null;
+    const markerByProximity = !isMarkerByRaycast ? this.findMarkerByProximity(event) : null;
+    const isMarker = isMarkerByRaycast || markerByProximity != null;
+    let trackLabel = first?.userData?.trackLabel;
+    if (!trackLabel && !isMarker) {
+      const connectorProximity = this.cascadeConnectorLine ? this.findConnectorLineByProximity(event) : null;
+      const xiProximity = this.cascadeXiLine ? this.findXiLineByProximity(event) : null;
+      const lambdaFlightProximity = this.lambdaFlightLine2Track ? this.findLambdaFlightLineByProximity(event) : null;
+      if (connectorProximity) trackLabel = connectorProximity.label;
+      else if (xiProximity) trackLabel = xiProximity.label;
+      else if (lambdaFlightProximity) trackLabel = lambdaFlightProximity.label;
+    }
+
+    if (isMarker) {
+      this.vertexMarkerTooltip = {
+        label: isMarkerByRaycast ? first.userData.vertexLabel : markerByProximity.label,
+        x: event.clientX,
+        y: event.clientY
+      };
+      this.trackTooltip = null;
+      const decayGroup = this.decays.visible && this.decays.children.length > 0 ? this.decays.children[0] : null;
+      if (decayGroup != null && this.decayGroupHovered !== decayGroup) {
+        this.clearCascadeHover();
+        this.applyCascadeHover(decayGroup);
+      }
+    } else if (trackLabel) {
+      this.vertexMarkerTooltip = null;
+      this.trackTooltip = { label: trackLabel, x: event.clientX, y: event.clientY };
+      let decayGroup: THREE.Object3D | null = null;
+      if (this.decays.visible && intersects.length > 0) {
+        const obj = intersects[0].object as THREE.Object3D;
+        decayGroup = obj.parent?.parent === this.decays ? obj.parent : null;
+        if (!decayGroup && this.decays.children.length > 0 && (first === this.cascadeConnectorLine || first === this.cascadeXiLine || first === this.lambdaFlightLine2Track)) {
+          decayGroup = this.decays.children[0];
+        }
+      }
+      if (decayGroup != null && this.decayGroupHovered !== decayGroup) {
+        this.clearCascadeHover();
+        this.applyCascadeHover(decayGroup);
+      } else if (decayGroup == null && !this.cascadeConnectorLine && !this.lambdaFlightLine2Track) {
+        this.clearCascadeHover();
+      }
+    } else {
+      this.vertexMarkerTooltip = null;
+      this.trackTooltip = null;
+      if (this.decays.visible && intersects.length > 0) {
+        const obj = intersects[0].object as THREE.Object3D;
+        const decayGroup = obj.parent?.parent === this.decays ? obj.parent : null;
+        if (decayGroup != null) {
+          if (this.decayGroupHovered !== decayGroup) {
+            this.clearCascadeHover();
+            this.applyCascadeHover(decayGroup);
+          }
+        } else {
+          this.clearCascadeHover();
+        }
+      } else {
+        this.clearCascadeHover();
+      }
+    }
+  }
+
+  onPointerLeave() {
+    this.isMousePanning = false;
+    this.vertexMarkerTooltip = null;
+    this.trackTooltip = null;
+    this.clearCascadeHover();
+  }
+
+  closeVertexPanel() {
+    this.vertexPanelOpen = null;
+  }
+
+  onVertexPanelHeaderMouseDown(event: MouseEvent) {
+    if (!this.vertexPanelOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const parent = this.canvas?.parentElement as HTMLElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    this.vertexPanelDragOffsetX = event.clientX - rect.left - this.vertexPanelX;
+    this.vertexPanelDragOffsetY = event.clientY - rect.top - this.vertexPanelY;
+    this.vertexPanelDragging = true;
+    window.addEventListener('mousemove', this.onVertexPanelDragMove);
+    window.addEventListener('mouseup', this.onVertexPanelDragEnd);
+  }
+
+  private onVertexPanelDragMove = (e: MouseEvent) => {
+    if (!this.vertexPanelDragging) return;
+    const parent = this.canvas?.parentElement as HTMLElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    let x = e.clientX - rect.left - this.vertexPanelDragOffsetX;
+    let y = e.clientY - rect.top - this.vertexPanelDragOffsetY;
+    x = Math.max(0, Math.min(rect.width - 280, x));
+    y = Math.max(0, Math.min(rect.height - 200, y));
+    this.vertexPanelX = x;
+    this.vertexPanelY = y;
+    this.cdr.detectChanges();
+  };
+
+  private onVertexPanelDragEnd = () => {
+    if (!this.vertexPanelDragging) return;
+    this.vertexPanelDragging = false;
+    window.removeEventListener('mousemove', this.onVertexPanelDragMove);
+    window.removeEventListener('mouseup', this.onVertexPanelDragEnd);
+  };
+
+  private applyCascadeHover(decayGroup: THREE.Object3D) {
+    this.decayGroupHovered = decayGroup;
+    this.decayHoverOrigMaterials = [];
+    for (const child of decayGroup.children) {
+      const mesh = child as THREE.Mesh;
+      if (mesh.material) {
+        this.decayHoverOrigMaterials.push(Array.isArray(mesh.material) ? mesh.material[0] : mesh.material);
+        const track = (mesh as any).userData;
+        mesh.material = track?.sign > 0 ? this.cascadeProtonMaterial : this.cascadeHoverTrackMaterial;
+      }
+    }
+    this.cascadeHoverActive = true;
+    (this.trackMaterial as any).transparent = true;
+    (this.trackMaterial as any).opacity = 0;
+    this.detectorScene?.traverse((o: THREE.Object3D) => {
+      if ((o as any).isMesh) {
+        const raw = (o as THREE.Mesh).material;
+        const mats: THREE.Material[] = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        for (const m of mats) { if (m) (m as any).opacity = EventDisplayComponent.DETECTOR_FADE_OPACITY; }
+      }
     });
+    this.cascadeMarkerOrigColors = [];
+    this.cascadeVertexMarkers.children.forEach((obj, idx) => {
+      const mesh = obj as THREE.Mesh;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      if (mat?.color) {
+        this.cascadeMarkerOrigColors[idx] = mat.color.getHex();
+        mat.color.set(0xFF3333);
+      }
+    });
+    this.cascadeMarkerEnhanced = true;
+    if (this.cascadeVertexMarkers.children.length >= 2) {
+      const v0 = new THREE.Vector3();
+      const v1 = new THREE.Vector3();
+      this.cascadeVertexMarkers.children[0].getWorldPosition(v0);
+      this.cascadeVertexMarkers.children[1].getWorldPosition(v1);
+      const lineGeometry = new LineGeometry();
+      lineGeometry.setPositions([v0.x, v0.y, v0.z, v1.x, v1.y, v1.z]);
+      const mat = new LineMaterial({
+        color: 0xff0000,
+        linewidth: this.trackHighlightWidth,
+        dashed: true,
+        dashSize: 1,
+        gapSize: 0.6,
+        dashScale: 4,
+        resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight)
+      });
+      const line = new Line2(lineGeometry, mat);
+      line.computeLineDistances();
+      line.renderOrder = 9998;
+      (line as any).userData = { trackLabel: 'Λ track' };
+      this.scene.add(line);
+      this.cascadeConnectorLine = line;
+      const origin = new THREE.Vector3(0, 0, 0);
+      const xiLineGeometry = new LineGeometry();
+      xiLineGeometry.setPositions([origin.x, origin.y, origin.z, v1.x, v1.y, v1.z]);
+      const xiMat = new LineMaterial({
+        color: 0x9932cc,
+        linewidth: this.trackHighlightWidth,
+        dashed: true,
+        dashSize: 1,
+        gapSize: 0.6,
+        dashScale: 4,
+        resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight)
+      });
+      const xiLine = new Line2(xiLineGeometry, xiMat);
+      xiLine.computeLineDistances();
+      xiLine.renderOrder = 9997;
+      (xiLine as any).userData = { trackLabel: 'Ξ⁻ track' };
+      this.scene.add(xiLine);
+      this.cascadeXiLine = xiLine;
+    } else if (this.cascadeVertexMarkers.children.length === 1) {
+      const origin = new THREE.Vector3(0, 0, 0);
+      const v0 = new THREE.Vector3();
+      this.cascadeVertexMarkers.children[0].getWorldPosition(v0);
+      const lineGeometry = new LineGeometry();
+      lineGeometry.setPositions([origin.x, origin.y, origin.z, v0.x, v0.y, v0.z]);
+      const mat = new LineMaterial({
+        color: 0xff0000,
+        linewidth: this.trackHighlightWidth,
+        dashed: true,
+        dashSize: 1,
+        gapSize: 0.6,
+        dashScale: 4,
+        resolution: new THREE.Vector2(this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight)
+      });
+      const line = new Line2(lineGeometry, mat);
+      line.computeLineDistances();
+      line.renderOrder = 9997;
+      (line as any).userData = { trackLabel: 'Λ track' };
+      this.scene.add(line);
+      this.lambdaFlightLine2Track = line;
+    }
+  }
+
+  private clearCascadeHover() {
+    if (this.decayGroupHovered) {
+      const children = this.decayGroupHovered.children;
+      for (let i = 0; i < children.length && i < this.decayHoverOrigMaterials.length; i++) {
+        (children[i] as THREE.Mesh).material = this.decayHoverOrigMaterials[i];
+      }
+      this.decayGroupHovered = null;
+      this.decayHoverOrigMaterials = [];
+    }
+    if (this.cascadeHoverActive) {
+      this.cascadeHoverActive = false;
+      (this.trackMaterial as any).transparent = false;
+      (this.trackMaterial as any).opacity = 1;
+      this.detectorScene?.traverse((o: THREE.Object3D) => {
+        if ((o as any).isMesh) {
+          const raw = (o as THREE.Mesh).material;
+          const mats: THREE.Material[] = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+          for (const m of mats) { if (m) (m as any).opacity = 0.22; }
+        }
+      });
+    }
+    if (this.cascadeMarkerEnhanced) {
+      this.cascadeVertexMarkers.children.forEach((obj, idx) => {
+        const mesh = obj as THREE.Mesh;
+        const mat = mesh.material as THREE.MeshBasicMaterial;
+        if (mat?.color && this.cascadeMarkerOrigColors[idx] !== undefined) {
+          mat.color.setHex(this.cascadeMarkerOrigColors[idx]);
+        }
+      });
+      this.cascadeMarkerEnhanced = false;
+      this.cascadeMarkerOrigColors = [];
+    }
+    if (this.cascadeConnectorLine) {
+      this.scene.remove(this.cascadeConnectorLine);
+      this.cascadeConnectorLine.geometry.dispose();
+      (this.cascadeConnectorLine.material as THREE.Material).dispose();
+      this.cascadeConnectorLine = null;
+    }
+    if (this.cascadeXiLine) {
+      this.scene.remove(this.cascadeXiLine);
+      this.cascadeXiLine.geometry.dispose();
+      (this.cascadeXiLine.material as THREE.Material).dispose();
+      this.cascadeXiLine = null;
+    }
+    if (this.lambdaFlightLine2Track) {
+      this.scene.remove(this.lambdaFlightLine2Track);
+      this.lambdaFlightLine2Track.geometry.dispose();
+      (this.lambdaFlightLine2Track.material as THREE.Material).dispose();
+      this.lambdaFlightLine2Track = null;
+    }
+  }
+
+  private findLambdaFlightLineByProximity(event: MouseEvent): { label: string } | null {
+    if (!this.lambdaFlightLine2Track || this.cascadeVertexMarkers.children.length !== 1) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = rect.height - (event.clientY - rect.top);
+    const maxDist = EventDisplayComponent.MARKER_PROXIMITY_PX * EventDisplayComponent.MARKER_PROXIMITY_PX;
+    const origin = new THREE.Vector3(0, 0, 0);
+    const v1 = new THREE.Vector3();
+    this.cascadeVertexMarkers.children[0].getWorldPosition(v1);
+    const viewports = this.sideViewsShown
+      ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
+      : [{ view: this.cam3DVP, cam: this.camera3D }];
+    for (const { view, cam } of viewports) {
+      const ndcX = (cursorX - view.x) / view.z;
+      const ndcY = (cursorY - view.y) / view.w;
+      if (ndcX < 0 || ndcX > 1 || ndcY < 0 || ndcY > 1) continue;
+      const p0 = origin.clone().project(cam);
+      const p1 = v1.clone().project(cam);
+      const sx0 = (p0.x * 0.5 + 0.5) * view.z + view.x;
+      const sy0 = (p0.y * 0.5 + 0.5) * view.w + view.y;
+      const sx1 = (p1.x * 0.5 + 0.5) * view.z + view.x;
+      const sy1 = (p1.y * 0.5 + 0.5) * view.w + view.y;
+      const dx = sx1 - sx0;
+      const dy = sy1 - sy0;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 < 1e-10 ? 0 : Math.max(0, Math.min(1, ((cursorX - sx0) * dx + (cursorY - sy0) * dy) / len2));
+      const px = sx0 + t * dx;
+      const py = sy0 + t * dy;
+      const d = (cursorX - px) * (cursorX - px) + (cursorY - py) * (cursorY - py);
+      if (d < maxDist) return { label: 'Λ track' };
+    }
+    return null;
+  }
+
+  private findXiLineByProximity(event: MouseEvent): { label: string } | null {
+    if (!this.cascadeXiLine || this.cascadeVertexMarkers.children.length < 2) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = rect.height - (event.clientY - rect.top);
+    const maxDist = EventDisplayComponent.MARKER_PROXIMITY_PX * EventDisplayComponent.MARKER_PROXIMITY_PX;
+    const origin = new THREE.Vector3(0, 0, 0);
+    const v1 = new THREE.Vector3();
+    this.cascadeVertexMarkers.children[1].getWorldPosition(v1);
+    const viewports = this.sideViewsShown
+      ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
+      : [{ view: this.cam3DVP, cam: this.camera3D }];
+    for (const { view, cam } of viewports) {
+      const ndcX = (cursorX - view.x) / view.z;
+      const ndcY = (cursorY - view.y) / view.w;
+      if (ndcX < 0 || ndcX > 1 || ndcY < 0 || ndcY > 1) continue;
+      const p0 = origin.clone().project(cam);
+      const p1 = v1.clone().project(cam);
+      const sx0 = (p0.x * 0.5 + 0.5) * view.z + view.x;
+      const sy0 = (p0.y * 0.5 + 0.5) * view.w + view.y;
+      const sx1 = (p1.x * 0.5 + 0.5) * view.z + view.x;
+      const sy1 = (p1.y * 0.5 + 0.5) * view.w + view.y;
+      const dx = sx1 - sx0;
+      const dy = sy1 - sy0;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 < 1e-10 ? 0 : Math.max(0, Math.min(1, ((cursorX - sx0) * dx + (cursorY - sy0) * dy) / len2));
+      const px = sx0 + t * dx;
+      const py = sy0 + t * dy;
+      const d = (cursorX - px) * (cursorX - px) + (cursorY - py) * (cursorY - py);
+      if (d < maxDist) return { label: 'Ξ⁻ track' };
+    }
+    return null;
+  }
+
+  private findConnectorLineByProximity(event: MouseEvent): { label: string } | null {
+    if (!this.cascadeConnectorLine || this.cascadeVertexMarkers.children.length < 2) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = rect.height - (event.clientY - rect.top);
+    const maxDist = EventDisplayComponent.MARKER_PROXIMITY_PX * EventDisplayComponent.MARKER_PROXIMITY_PX;
+    const v0 = new THREE.Vector3();
+    const v1 = new THREE.Vector3();
+    this.cascadeVertexMarkers.children[0].getWorldPosition(v0);
+    this.cascadeVertexMarkers.children[1].getWorldPosition(v1);
+    const viewports = this.sideViewsShown
+      ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
+      : [{ view: this.cam3DVP, cam: this.camera3D }];
+    for (const { view, cam } of viewports) {
+      const ndcX = (cursorX - view.x) / view.z;
+      const ndcY = (cursorY - view.y) / view.w;
+      if (ndcX < 0 || ndcX > 1 || ndcY < 0 || ndcY > 1) continue;
+      const p0 = v0.clone().project(cam);
+      const p1 = v1.clone().project(cam);
+      const sx0 = (p0.x * 0.5 + 0.5) * view.z + view.x;
+      const sy0 = (p0.y * 0.5 + 0.5) * view.w + view.y;
+      const sx1 = (p1.x * 0.5 + 0.5) * view.z + view.x;
+      const sy1 = (p1.y * 0.5 + 0.5) * view.w + view.y;
+      const dx = sx1 - sx0;
+      const dy = sy1 - sy0;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 < 1e-10 ? 0 : Math.max(0, Math.min(1, ((cursorX - sx0) * dx + (cursorY - sy0) * dy) / len2));
+      const px = sx0 + t * dx;
+      const py = sy0 + t * dy;
+      const d = (cursorX - px) * (cursorX - px) + (cursorY - py) * (cursorY - py);
+      if (d < maxDist) return { label: 'Λ track' };
+    }
+    return null;
+  }
+
+  private findMarkerByProximity(event: MouseEvent): { label: string } | null {
+    if (this.cascadeVertexMarkers.children.length === 0) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = rect.height - (event.clientY - rect.top);
+    const maxDist = EventDisplayComponent.MARKER_PROXIMITY_PX * EventDisplayComponent.MARKER_PROXIMITY_PX;
+    let closest: { label: string; dist: number } | null = null;
+    const viewports = this.sideViewsShown
+      ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
+      : [{ view: this.cam3DVP, cam: this.camera3D }];
+    const v = new THREE.Vector3();
+    for (const { view, cam } of viewports) {
+      const ndcX = (cursorX - view.x) / view.z;
+      const ndcY = (cursorY - view.y) / view.w;
+      if (ndcX < 0 || ndcX > 1 || ndcY < 0 || ndcY > 1) continue;
+      for (const marker of this.cascadeVertexMarkers.children) {
+        marker.getWorldPosition(v);
+        v.project(cam);
+        const sx = (v.x * 0.5 + 0.5) * view.z + view.x;
+        const sy = (v.y * 0.5 + 0.5) * view.w + view.y;
+        const dx = cursorX - sx;
+        const dy = cursorY - sy;
+        const d = dx * dx + dy * dy;
+        if (d < maxDist && (closest == null || d < closest.dist)) {
+          const label = (marker as any).userData?.vertexLabel;
+          if (label) closest = { label, dist: d };
+        }
+      }
+    }
+    return closest ? { label: closest.label } : null;
+  }
+
+  private findIntersect(event: MouseEvent): THREE.Intersection[] {
+    const intersects: THREE.Intersection[] = [];
+    const zoomz = this.controls.target.distanceTo(this.controls.object.position);
+    const raycaster = new THREE.Raycaster();
+    // Raycaster params typings require `threshold` when Line2 is present.
+    if (!raycaster.params.Line2) {
+      raycaster.params.Line2 = { threshold: zoomz / 55 };
+    } else {
+      raycaster.params.Line2.threshold = zoomz / 55;
+    }
+    // Standard Line support (older three / different primitives)
+    (raycaster.params as any).Line = (raycaster.params as any).Line || { threshold: zoomz / 55 };
+    (raycaster.params as any).Line.threshold = zoomz / 55;
+    const windowOffset = this.renderer.domElement.getBoundingClientRect();
+    const viewportclick = new THREE.Vector2(
+      event.clientX - windowOffset.left,
+      -(event.clientY - windowOffset.top) + this.renderer.domElement.clientHeight
+    );
+    let viewports: { view: THREE.Vector4; cam: THREE.Camera }[];
+    if (this.sideViewsShown) {
+      viewports = [
+        { view: this.cam3DVP, cam: this.camera3D },
+        { view: this.camRphiVP, cam: this.cameraRphi },
+        { view: this.camRhozVP, cam: this.cameraRhoz }
+      ];
+    } else {
+      viewports = [{ view: this.cam3DVP, cam: this.camera3D }];
+    }
+    for (let v of viewports) {
+      const vp = v.view;
+      const cam = v.cam;
+      const ndcpos = new THREE.Vector2(
+        ((viewportclick.x - vp.x) / vp.z - 0.5) * 2,
+        ((viewportclick.y - vp.y) / vp.w - 0.5) * 2
+      );
+      if (ndcpos.x < -1 || ndcpos.x > 1 || ndcpos.y < -1 || ndcpos.y > 1) continue;
+      raycaster.setFromCamera(ndcpos, cam);
+      if (this.decays.children.length > 0) {
+        intersects.push(...raycaster.intersectObjects(this.decays.children, true));
+      }
+      if (this.cascadeVertexMarkers.children.length > 0) {
+        intersects.push(...raycaster.intersectObjects(this.cascadeVertexMarkers.children, false));
+      }
+      if (this.cascadeConnectorLine) {
+        intersects.push(...raycaster.intersectObject(this.cascadeConnectorLine, false));
+      }
+      if (this.cascadeXiLine) {
+        intersects.push(...raycaster.intersectObject(this.cascadeXiLine, false));
+      }
+      if (this.lambdaFlightLine2Track) {
+        intersects.push(...raycaster.intersectObject(this.lambdaFlightLine2Track, false));
+      }
+    }
+    intersects.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    return intersects;
+  }
+
+  private createScene(): void {
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, logarithmicDepthBuffer: true, antialias: true });
     this.renderer.setClearColor(0xFFFFFF);
     this.renderer.setPixelRatio(window.devicePixelRatio);
-
-    // Initialize cameras
+    this.renderer.setSize(1, 1);
     this.camera3D = new THREE.PerspectiveCamera(
       EventDisplayComponent.fieldOfView,
       this.aspectRatio,
@@ -500,131 +1272,65 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       EventDisplayComponent.farClippingPlane
     );
     this.camera3D.position.set(-7.5, 7.5, 2.5);
-    this.camera3D.lookAt(0, 0, 0);
-
+    this.camera3D.up.set(0.0, 1.0, 0.0);
     this.cameraRphi = new THREE.PerspectiveCamera(
       EventDisplayComponent.fieldOfView,
       this.aspectRatio,
       EventDisplayComponent.nearClippingPlane,
       EventDisplayComponent.farClippingPlane
     );
-    this.cameraRphi.position.set(0, 0, 10);
-    this.cameraRphi.up.set(0, 1, 0);
-    this.cameraRphi.lookAt(0, 0, 0);
-
+    this.cameraRphi.position.set(0.0, 0.0, 10.0);
+    this.cameraRphi.up.set(0.0, 1.0, 0.0);
+    this.cameraRphi.lookAt(new THREE.Vector3(0, 0, 0));
     this.cameraRhoz = new THREE.PerspectiveCamera(
       EventDisplayComponent.fieldOfView,
       this.aspectRatio,
       EventDisplayComponent.nearClippingPlane,
       EventDisplayComponent.farClippingPlane
     );
-    this.cameraRhoz.position.set(-10, 0, 0);
-    this.cameraRhoz.up.set(0, 1, 0);
-    this.cameraRhoz.lookAt(0, 0, 0);
-
-    // Initialize controls
+    this.cameraRhoz.position.set(-10.0, 0.0, 0.0);
+    this.cameraRhoz.up.set(0.0, 1.0, 0.0);
+    this.cameraRhoz.lookAt(new THREE.Vector3(0, 0, 0));
     this.controls = new OrbitControls(this.camera3D, this.renderer.domElement);
+    this.controls.target.set(0.0, 0.0, 0.0);
+    this.controls.maxPolarAngle = 0.5 * Math.PI;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('pointerup', this.onPointerUp);
+    this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
+    this.updateCameraMode();
+    const ambientLight = new THREE.AmbientLight(0x040404);
     this.lights.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    directionalLight.position.set(10, 10, 10);
-    this.lights.add(directionalLight);
-
-    // Add axes helper
+    const directionalLighta = new THREE.DirectionalLight(0xFFFFFF);
+    directionalLighta.position.set(1.0, 1.0, 1.0);
+    this.lights.add(directionalLighta);
+    const directionalLightb = new THREE.DirectionalLight(0xFFFFFF);
+    directionalLightb.position.set(-1.0, 1.0, -1.0);
+    this.lights.add(directionalLightb);
     const axesHelper = new THREE.AxesHelper(5);
     this.axes.add(axesHelper);
-
-    // Build scene hierarchy
-    this.scene.add(this.lights);
+    this.axes.visible = false;
     this.scene.add(this.axes);
-    this.detectorSideViews.clear();
+    this.scene.add(this.lights);
+    this.detectorSideViewsRhoz.clear();
     this.detectorSideViews.add(this.detectorSideViewsRphi);
     this.detectorSideViews.add(this.detectorSideViewsRhoz);
     this.scene.add(this.detector);
     this.scene.add(this.detectorSideViews);
     this.scene.add(this.tracks);
-    this.scene.add(this.decays);
+    this.scene.add(this.cascadeVertexMarkers);
     this.scene.add(this.clusters);
-    this.axes.visible = this._axesShown;
-    this.detector.visible = this._detectorShown;
-    this.detectorSideViews.visible = this._detectorShown;
-    this.tracks.visible = this._tracksShown;
-    this.decays.visible = this._decaysShown;
-    this.clusters.visible = this._clustersShown;
-
-    // Initial resize
+    this.scene.add(this.decays);
     this.resize(true);
   }
 
-  private findIntersect(event: MouseEvent): THREE.Intersection[] {
-    const intersects: THREE.Intersection[] = [];
-    if (!this.renderer || !this.controls) return intersects;
-
-    const zoomz = this.controls.target.distanceTo(this.controls.object.position);
-    const raycaster = new THREE.Raycaster();
-    (raycaster.params as any).Line2 = (raycaster.params as any).Line2 || { threshold: zoomz / 55 };
-    (raycaster.params as any).Line2.threshold = zoomz / 55;
-    (raycaster.params as any).Line = (raycaster.params as any).Line || { threshold: zoomz / 55 };
-    (raycaster.params as any).Line.threshold = zoomz / 55;
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const viewportClick = new THREE.Vector2(
-      event.clientX - rect.left,
-      -(event.clientY - rect.top) + this.renderer.domElement.clientHeight
-    );
-
-    const viewports = this.sideViewsShown
-      ? [
-          { view: this.cam3DVP, cam: this.camera3D },
-          { view: this.camRphiVP, cam: this.cameraRphi },
-          { view: this.camRhozVP, cam: this.cameraRhoz },
-        ]
-      : [{ view: this.cam3DVP, cam: this.camera3D }];
-
-    for (const v of viewports) {
-      const ndc = new THREE.Vector2(
-        ((viewportClick.x - v.view.x) / v.view.z - 0.5) * 2,
-        ((viewportClick.y - v.view.y) / v.view.w - 0.5) * 2
-      );
-      if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) continue;
-      raycaster.setFromCamera(ndc, v.cam);
-      if (this.decays.children.length > 0) {
-        intersects.push(...raycaster.intersectObjects(this.decays.children, true));
-      }
-    }
-
-    intersects.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-    return intersects;
+  onPreviousEventClick(): void {
+    this.previousEvent.emit();
   }
 
-  private clearTrackHover(): void {
-    if (this.trackHoverObj) {
-      this.trackHoverObj = null;
-    }
-    if (this.trackHoverOverlayObj?.parent) {
-      this.trackHoverOverlayObj.parent.remove(this.trackHoverOverlayObj);
-    }
-    this.trackHoverOverlayObj = null;
-  }
-
-  private createHoverOverlay(target: THREE.Object3D): THREE.Object3D | null {
-    if (!(target as any).geometry) return null;
-
-    if (target instanceof Line2) {
-      const overlay = new Line2((target as any).geometry, this.hoverTrackMaterial as LineMaterial);
-      overlay.computeLineDistances();
-      overlay.position.copy(target.position);
-      overlay.quaternion.copy(target.quaternion);
-      overlay.scale.copy(target.scale);
-      overlay.renderOrder = 1000;
-      (overlay as any).userData = { __hoverOverlay: true };
-      return overlay;
-    }
-    return null;
+  onNextEventClick(): void {
+    this.nextEvent.emit();
   }
 }

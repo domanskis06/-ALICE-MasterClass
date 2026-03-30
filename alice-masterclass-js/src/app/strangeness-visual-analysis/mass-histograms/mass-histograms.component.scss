@@ -5,3 +5,32 @@
 .hist-title {
   font-size: 1.5rem;
 }
+
+.upload-data-button {
+  text-transform: none;
+  padding: 0 10px;
+  min-height: 28px;
+  line-height: 28px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upload-data-button mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+mat-card-content {
+  min-height: 520px;
+}
+
+.hist-grid {
+  align-items: stretch;
+}
+
+.hist-item {
+  min-width: 320px;
+}

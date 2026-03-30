@@ -16,6 +16,27 @@
       (nextEvent)="onNextEvent()"
       (trackClickedEvent)="onTrackClicked($event)"
       >
+      <div class="dataset-controls">
+        <mat-form-field appearance="outline" class="dataset-select">
+          <mat-label>{{ 'SELECT_DATASET_DIALOG.DATASET' | translate }}</mat-label>
+          <mat-select [value]="datasetID" (selectionChange)="onDatasetChange($event.value)">
+            @if (dataService.VA_DATASET.hasDemo) {
+              <mat-option [value]="-1">{{ 'SELECT_DATASET_DIALOG.DEMO' | translate }}</mat-option>
+            }
+            @for (ds of dataService.VA_DATASET.dataset; track ds) {
+              <mat-option [value]="ds">
+                <span [translate]="'SELECT_DATASET_DIALOG.DATASET_VAL'" [translateParams]="{dataset: ds - 1}"></span>
+              </mat-option>
+            }
+            @if (dataService.VA_DATASET.hasFull) {
+              <mat-option [value]="-2">{{ 'SELECT_DATASET_DIALOG.FULL_EVENT' | translate }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button mat-raised-button color="warn" class="sandbox-button" disabled>
+          Sandbox Mode
+        </button>
+      </div>
       <span>{{ 'EVENT_DISPLAY.EVENT' | translate }} {{ eventID }}</span>
       @if (isCurrentEventDone) {
         <mat-icon id="done">done</mat-icon>

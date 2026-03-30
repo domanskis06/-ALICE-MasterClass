@@ -1,10 +1,9 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
-import { HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HttpClientModule, HttpClient } from '@angular/common/http';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { AngularModule } from './shared/angular.module';
-import { LayoutModule } from '@angular/cdk/layout';
 
 import { AppRoutingModule } from './app-routing.module';
 
@@ -22,37 +21,35 @@ import { AppComponent } from './app.component';
 import { AuthDialogComponent } from './auth-dialog/auth-dialog.component';
 import { SelectDatasetDialogComponent } from './select-dataset-dialog/select-dataset-dialog.component';
 import { InstructionsDialogComponent } from './instructions-dialog/instructions-dialog.component';
-import { AppConfig } from '../environments/environment';
-import { ApiService } from './shared/services/api.service';
-import { MockApiService } from './shared/services/mock-api.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient): TranslateHttpLoader {
   return new TranslateHttpLoader(http, './assets/i18n/', '.json');
 }
 
-@NgModule({ declarations: [AppComponent, AuthDialogComponent, SelectDatasetDialogComponent, InstructionsDialogComponent],
-    bootstrap: [AppComponent], imports: [BrowserModule,
-        CoreModule,
-        SharedModule,
-        AngularModule,
-        AppRoutingModule,
-        LayoutModule,
-        TranslateModule.forRoot({
-            loader: {
-                provide: TranslateLoader,
-                useFactory: HttpLoaderFactory,
-                deps: [HttpClient]
-            }
-        }),
-        HomeModule,
-        NavModule,
-        AboutModule,
-        StrangenessVisualAnalysisModule,
-        StrangenessLargeScaleAnalysisModule], providers: [
-            provideHttpClient(withInterceptorsFromDi()),
-            // Jeśli w konfiguracji deweloperskiej włączony jest teacherMode,
-            // zamieniamy ApiService na MockApiService
-            ...(AppConfig && (AppConfig as any).teacherMode ? [{ provide: ApiService, useClass: MockApiService }] : [])
-        ] })
+@NgModule({
+  declarations: [AppComponent, AuthDialogComponent, SelectDatasetDialogComponent, InstructionsDialogComponent],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    CoreModule,
+    SharedModule,
+    AngularModule,
+    AppRoutingModule,
+    TranslateModule.forRoot({
+      loader: {
+        provide: TranslateLoader,
+        useFactory: HttpLoaderFactory,
+        deps: [HttpClient]
+      }
+    }),
+    HomeModule,
+    NavModule,
+    AboutModule,
+    StrangenessVisualAnalysisModule,
+    StrangenessLargeScaleAnalysisModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
 export class AppModule {}

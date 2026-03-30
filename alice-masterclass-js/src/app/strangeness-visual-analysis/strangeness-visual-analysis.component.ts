@@ -5,7 +5,6 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { forkJoin, Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { SelectDatasetDialogComponent } from '../select-dataset-dialog/select-dataset-dialog.component';
 import { Event, Track, TrackType } from '../shared/models';
 
@@ -29,12 +28,11 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
 
   instructionsComponent: Type<any> = InstructionsComponent;
 
-  readonly ALICE_DETECTOR_MODEL = "assets/models/alice.gltf";
+  readonly ALICE_DETECTOR_MODEL = "assets/models/alice.glb";
   readonly ALICE_DETECTOR_RPHI = "assets/models/alice_rphi.svg";
   readonly ALICE_DETECTOR_RHOZ = "assets/models/alice_rhoz.svg";
 
-  datasetID: number = null;
-  
+  datasetID: number = SelectDatasetDialogComponent.DEMO;
   eventID: number = 0;
   maxEvents: number = 0;
   event: Event = {tracks: [], decays: [], clusters: []};
@@ -53,7 +51,6 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
 
   constructor(
     private breakpointObserver: BreakpointObserver,
-    private dialog: MatDialog,
     private snackBar: MatSnackBar,
     public dataService: StrangenessDataService,
     private translateService: TranslateService
@@ -66,36 +63,15 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
     }
 
   ngOnInit(): void {
-    const dialogConfig = new MatDialogConfig();
-    dialogConfig.disableClose = true;
-    dialogConfig.autoFocus = true;
-    dialogConfig.data = this.dataService.VA_DATASET;
-
-    const dialogRef = this.dialog.open(SelectDatasetDialogComponent, dialogConfig);
-
-    dialogRef.componentInstance.proceedClickedEvent.subscribe((data: string) => {
-      this.dataService.clearVisualAnalysisResults();
-      
-      this.datasetID = parseInt(data);
-
-      if (this.datasetID === SelectDatasetDialogComponent.DEMO) {
-        this.maxEvents = this.dataService.EVENTS_IN_DEMO_DATASET;
-      } else if (this.datasetID === SelectDatasetDialogComponent.FULL_EVENT) {
-        this.maxEvents = this.dataService.EVENTS_IN_FULL_DATASET;
-      } else {
-        this.maxEvents = this.dataService.EVENTS_IN_DATASET;
+    this.maxEvents = this.dataService.EVENTS_IN_DEMO_DATASET;
+    this.loadEvent().subscribe(
+      (data: Event) => {
+        this.eventChanged();
+        this.event = data;
+      },
+      (error: HttpErrorResponse) => {
       }
-
-      this.loadEvent().subscribe(
-        (data: Event) => {
-          this.eventChanged();
-          this.event = data;
-          dialogRef.close();
-        },
-        (error: HttpErrorResponse) => {
-        }
-      );
-    });
+    );
   }
 
   private loadEvent() {
@@ -110,6 +86,29 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
     }
 
     return this.dataService.getEvent(datasetNum, this.eventID);
+  }
+
+  onDatasetChange(newDatasetID: number): void {
+    this.dataService.clearVisualAnalysisResults();
+    this.datasetID = newDatasetID;
+
+    if (this.datasetID === SelectDatasetDialogComponent.DEMO) {
+      this.maxEvents = this.dataService.EVENTS_IN_DEMO_DATASET;
+    } else if (this.datasetID === SelectDatasetDialogComponent.FULL_EVENT) {
+      this.maxEvents = this.dataService.EVENTS_IN_FULL_DATASET;
+    } else {
+      this.maxEvents = this.dataService.EVENTS_IN_DATASET;
+    }
+
+    this.eventID = 0;
+    this.loadEvent().subscribe(
+      (data: Event) => {
+        this.eventChanged();
+        this.event = data;
+      },
+      (error: HttpErrorResponse) => {
+      }
+    );
   }
 
   onPreviousEvent(): void {

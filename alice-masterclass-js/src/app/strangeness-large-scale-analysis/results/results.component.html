@@ -7,13 +7,18 @@
       >
       <button
         [disabled]="!apiService.isAuthenticated"
-        mat-icon-button aria-label="Upload" (click)="onUploadButtonClicked()"
-        >
+        mat-raised-button
+        color="warn"
+        class="upload-data-button"
+        aria-label="Upload data"
+        (click)="onUploadButtonClicked()"
+      >
         @if (apiService.isAuthenticated) {
           <mat-icon class="material-icons-outlined">cloud_upload</mat-icon>
         } @else {
-          <mat-icon>cloud_off</mat-icon>
+          <mat-icon class="material-icons-outlined">cloud_off</mat-icon>
         }
+        <span class="upload-data-button__text">upload data</span>
       </button>
     </span>
   </mat-card-title>

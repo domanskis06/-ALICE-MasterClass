@@ -23,7 +23,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
     RIGHT: 10,
     BOTTOM: 20,
     BOTTOM_XLABEL: 10,
-    BOTTOM_TEXT: 3,
+    BOTTOM_TEXT: 0,
     LEFT: 25,
     LEFT_YLABEL: 10
   };
@@ -107,7 +107,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
     this._xDomainZoom.next(domainZoom);
   }
   private _xDomainZoom: BehaviorSubject<[number, number]> = new BehaviorSubject([0, 1]);
-  private xDomainZoomSubscription: Subscription = null;
+  private xDomainZoomSubscription: Subscription | null = null;
 
   @Input()
   get yDomain(): [number, number] { return this._yDomain.getValue(); }
@@ -115,7 +115,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
     this._yDomain.next(domain);
   }
   private _yDomain: BehaviorSubject<[number, number]> = new BehaviorSubject([0, 1]);
-  private yDomainSubscription: Subscription = null;
+  private yDomainSubscription: Subscription | null = null;
 
   @Input()
   get bins(): number { return this._bins.getValue(); }
@@ -123,7 +123,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
     this._bins.next(bins);
   }
   private _bins: BehaviorSubject<number> = new BehaviorSubject(1);
-  private binsSubscription: Subscription = null;
+  private binsSubscription: Subscription | null = null;
 
   @Input()
   get data(): Array<number> { return this._data.getValue(); }
@@ -132,7 +132,7 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
 
     const bins = this.binGenerator(data);
 
-    const yMax = d3.max(bins, (d: d3.Bin<number, number>) => { return d.length; });
+    const yMax = d3.max(bins, (d: d3.Bin<number, number>) => { return d.length; }) ?? 0;
 
     if (yMax !== 0) {
       this.yDomain = [0, yMax];
@@ -142,8 +142,8 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
 
     this._data.next(data);
   }
-  private _data: BehaviorSubject<Array<number>> = new BehaviorSubject([]);
-  private dataSubscription: Subscription = null;
+  private _data: BehaviorSubject<Array<number>> = new BehaviorSubject<number[]>([]);
+  private dataSubscription: Subscription | null = null;
 
   @Input()
   get enableZoom(): boolean { return this._enableZoom.getValue(); }
@@ -151,13 +151,15 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
     this._enableZoom.next(enableZoom);
   }
   private _enableZoom: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
-  private enableZoomSubscription: Subscription = null;
+  private enableZoomSubscription: Subscription | null = null;
 
   @Output()
   zoomEvent: EventEmitter<[number, number]> = new EventEmitter<[number, number]>();
 
   protected binCenter(bin: d3.Bin<number, number>) {
-    return (bin.x1 - bin.x0) / 2 + bin.x0;
+    const x0 = bin.x0 ?? 0;
+    const x1 = bin.x1 ?? x0;
+    return (x1 - x0) / 2 + x0;
   }
 
   constructor() { }
@@ -204,11 +206,11 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.xDomainZoomSubscription.unsubscribe();
-    this.yDomainSubscription.unsubscribe();
-    this.binsSubscription.unsubscribe();
-    this.dataSubscription.unsubscribe();
-    this.enableZoomSubscription.unsubscribe();
+    this.xDomainZoomSubscription?.unsubscribe();
+    this.yDomainSubscription?.unsubscribe();
+    this.binsSubscription?.unsubscribe();
+    this.dataSubscription?.unsubscribe();
+    this.enableZoomSubscription?.unsubscribe();
   }
 
   private updateBars(): void {
@@ -220,7 +222,9 @@ export class HistogramComponent implements AfterViewInit, OnDestroy {
 
     // One pixel wider to cover any floating point errors that definetely will happen
     if (bins.length > 0) {
-      barWidth = (this.xScale(bins[0].x1) - this.xScale(bins[0].x0)) + 1;
+      const x0 = bins[0].x0 ?? 0;
+      const x1 = bins[0].x1 ?? x0;
+      barWidth = (this.xScale(x1) - this.xScale(x0)) + 1;
     }
 
     const barsSelection = this.barsSelector.selectAll('rect').data(bins);
