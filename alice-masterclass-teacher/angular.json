@@ -75,10 +75,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "alice-masterclass-teacher:build:production"
+              "buildTarget": "alice-masterclass-teacher:build:production"
             },
             "development": {
-              "browserTarget": "alice-masterclass-teacher:build:development"
+              "buildTarget": "alice-masterclass-teacher:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -86,7 +86,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "alice-masterclass-teacher:build"
+            "buildTarget": "alice-masterclass-teacher:build"
           }
         },
         "test": {
