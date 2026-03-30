@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject, EventEmitter } from '@angular/core';
-import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { UntypedFormGroup, UntypedFormBuilder, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { EventAPI, ApiService } from '../shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -15,14 +15,14 @@ export class SelectEventDialogComponent implements OnInit {
 
   public loading: boolean = false;
 
-  public form!: FormGroup;
+  public form!: UntypedFormGroup;
 
   public events: EventAPI[] = [];
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private data: any,
     private dialogRef: MatDialogRef<SelectEventDialogComponent>,
-    private formBuilder: FormBuilder,
+    private formBuilder: UntypedFormBuilder,
     private apiService: ApiService) {
     
   }

@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject, EventEmitter } from '@angular/core';
-import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { UntypedFormGroup, UntypedFormBuilder, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { SessionAPI, ApiService } from '../shared/services/api.service';
 
@@ -13,14 +13,14 @@ export class SelectSessionDialogComponent implements OnInit {
 
   public loading: boolean = false;
 
-  public form!: FormGroup;
+  public form!: UntypedFormGroup;
 
   public sessions: SessionAPI[] = [];
 
   constructor(
     @Inject(MAT_DIALOG_DATA) private data: any,
     private dialogRef: MatDialogRef<SelectSessionDialogComponent>,
-    private formBuilder: FormBuilder,
+    private formBuilder: UntypedFormBuilder,
     private apiService: ApiService) {
     
   }

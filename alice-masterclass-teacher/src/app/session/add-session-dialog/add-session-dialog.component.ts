@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MatDialogRef, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { UntypedFormGroup, UntypedFormBuilder, Validators } from '@angular/forms';
 import { uniqueNamesGenerator, Config, adjectives, colors, animals } from 'unique-names-generator';
 import { EventAPI, ApiService } from 'src/app/shared/services/api.service';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -15,7 +15,7 @@ export class AddSessionDialogComponent implements OnInit {
   public hide: boolean = true;
   public loading: boolean = false;
 
-  public form!: FormGroup;
+  public form!: UntypedFormGroup;
 
   public events: EventAPI[] = [];
 
@@ -34,7 +34,7 @@ export class AddSessionDialogComponent implements OnInit {
   constructor(
     @Inject(MAT_DIALOG_DATA) private data: any,
     private dialogRef: MatDialogRef<AddSessionDialogComponent>,
-    private formBuilder: FormBuilder,
+    private formBuilder: UntypedFormBuilder,
     private apiService: ApiService) {
   }
 
