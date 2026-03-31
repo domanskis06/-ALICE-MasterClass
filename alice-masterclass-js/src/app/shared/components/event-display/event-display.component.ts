@@ -69,6 +69,39 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private cascadeProtonMaterial: THREE.Material = null;
   private pointsMaterial: THREE.Material = null;
 
+  private _backgroundColor: number = 0xFFFFFF;
+
+  @Input()
+  get backgroundColor(): number { return this._backgroundColor; }
+  set backgroundColor(backgroundColor: number) {
+    this._backgroundColor = backgroundColor;
+    // If renderer already exists (e.g. runtime toggles), update immediately.
+    if (this.renderer) {
+      this.renderer.setClearColor(this._backgroundColor);
+    }
+  }
+
+  private _showControls: boolean = true;
+
+  @Input()
+  get showControls(): boolean { return this._showControls; }
+  set showControls(showControls: boolean) {
+    this._showControls = showControls;
+    if (!showControls) this.sidebarOpened = false;
+  }
+
+  private _showGridBackground: boolean = false;
+  private gridHelpers: THREE.GridHelper[] = [];
+
+  @Input()
+  get showGridBackground(): boolean { return this._showGridBackground; }
+  set showGridBackground(showGridBackground: boolean) {
+    this._showGridBackground = showGridBackground;
+
+    if (!this.scene) return;
+    this.syncGridBackground();
+  }
+
   @Input()
   get trackWidth(): number { return this._trackWidth; }
   get trackHighlightWidth(): number { return 6 * this.trackWidth; }
@@ -613,6 +646,50 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('pointerup', this.onPointerUp);
     this.canvas?.removeEventListener('wheel', this.onWheel);
+    this.clearGridBackground();
+  }
+
+  private clearGridBackground(): void {
+    for (const helper of this.gridHelpers) {
+      this.scene.remove(helper);
+      helper.geometry.dispose();
+      const material = helper.material as THREE.Material | THREE.Material[];
+      if (Array.isArray(material)) {
+        material.forEach((m) => m.dispose());
+      } else {
+        material.dispose();
+      }
+    }
+    this.gridHelpers = [];
+  }
+
+  private syncGridBackground(): void {
+    this.clearGridBackground();
+    if (!this._showGridBackground) return;
+
+    const size = 220;
+    const divisions = 90;
+    const white = 0xffffff;
+
+    const gridXZ = new THREE.GridHelper(size, divisions, white, white);
+    gridXZ.material.transparent = true;
+    (gridXZ.material as THREE.Material).opacity = 0.22;
+    gridXZ.position.set(0, 0, 0);
+
+    const gridXY = new THREE.GridHelper(size, divisions, white, white);
+    gridXY.rotation.x = Math.PI / 2;
+    gridXY.material.transparent = true;
+    (gridXY.material as THREE.Material).opacity = 0.12;
+    gridXY.position.set(0, 0, 0);
+
+    const gridYZ = new THREE.GridHelper(size, divisions, white, white);
+    gridYZ.rotation.z = Math.PI / 2;
+    gridYZ.material.transparent = true;
+    (gridYZ.material as THREE.Material).opacity = 0.12;
+    gridYZ.position.set(0, 0, 0);
+
+    this.gridHelpers = [gridXZ, gridXY, gridYZ];
+    this.gridHelpers.forEach((g) => this.scene.add(g));
   }
 
   onCameraModeChange(): void {
@@ -1262,7 +1339,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   private createScene(): void {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, logarithmicDepthBuffer: true, antialias: true });
-    this.renderer.setClearColor(0xFFFFFF);
+    this.renderer.setClearColor(this._backgroundColor);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(1, 1);
     this.camera3D = new THREE.PerspectiveCamera(
@@ -1314,6 +1391,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.axes.visible = false;
     this.scene.add(this.axes);
     this.scene.add(this.lights);
+    this.syncGridBackground();
     this.detectorSideViewsRhoz.clear();
     this.detectorSideViews.add(this.detectorSideViewsRphi);
     this.detectorSideViews.add(this.detectorSideViewsRhoz);

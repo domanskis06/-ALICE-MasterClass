@@ -10,6 +10,7 @@ import { ParticleMassComponent } from './particle-mass/particle-mass.component';
 import { CalculatorComponent } from './calculator/calculator.component';
 import { MassHistogramsComponent } from './mass-histograms/mass-histograms.component';
 import { InstructionsComponent } from './instructions/instructions.component';
+import { SandboxModeDialogComponent } from './sandbox-mode-dialog/sandbox-mode-dialog.component';
 
 @NgModule({
   declarations: [
@@ -17,7 +18,8 @@ import { InstructionsComponent } from './instructions/instructions.component';
     ParticleMassComponent,
     CalculatorComponent,
     MassHistogramsComponent,
-    InstructionsComponent
+    InstructionsComponent,
+    SandboxModeDialogComponent
   ],
   imports: [
     CommonModule,

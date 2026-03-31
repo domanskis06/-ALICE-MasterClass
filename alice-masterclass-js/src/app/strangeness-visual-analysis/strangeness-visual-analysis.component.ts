@@ -1,5 +1,6 @@
 import { Component, OnInit, Type } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { InstructionsProvider } from '../shared/interfaces';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { forkJoin, Observable } from 'rxjs';
@@ -12,6 +13,7 @@ import { StrangenessDataService } from '../services/strangeness-data.service';
 import { ParticleType, VisualAnalysisResultsEntry } from '../shared/services/api.service';
 import { InstructionsComponent } from './instructions/instructions.component';
 import { TranslateService } from '@ngx-translate/core';
+import { SandboxModeDialogComponent, SandboxModeDialogData } from './sandbox-mode-dialog/sandbox-mode-dialog.component';
 
 export interface SubmitHistogramEntry {
   type: ParticleType,
@@ -52,6 +54,7 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
   constructor(
     private breakpointObserver: BreakpointObserver,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
     public dataService: StrangenessDataService,
     private translateService: TranslateService
     ) { 
@@ -72,6 +75,29 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
       (error: HttpErrorResponse) => {
       }
     );
+  }
+
+  onSandboxModeClicked(): void {
+    const config = new MatDialogConfig();
+    config.disableClose = false;
+    config.autoFocus = false;
+    config.panelClass = 'sandbox-mode-panel';
+    config.width = '100vw';
+    config.height = '100vh';
+    config.maxWidth = '100vw';
+    config.maxHeight = '100vh';
+    config.position = { top: '0', left: '0' };
+
+    const data: SandboxModeDialogData = {
+      event: this.event,
+      detectorModel: this.ALICE_DETECTOR_MODEL,
+      detectorRphi: this.ALICE_DETECTOR_RPHI,
+      detectorRhoz: this.ALICE_DETECTOR_RHOZ,
+      onTrackClicked: (track: Track) => this.onTrackClicked(track)
+    };
+
+    config.data = data;
+    this.dialog.open(SandboxModeDialogComponent, config);
   }
 
   private loadEvent() {

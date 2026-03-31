@@ -3,51 +3,57 @@
     <span class="title" fxLayout="row" fxLayoutAlign="start center" fxLayoutGap="16px">
       <ng-content></ng-content>
     </span>
-    <button mat-icon-button aria-label="Options for Event Display" (click)="drawer.toggle()">
-      <mat-icon>filter_list</mat-icon>
-    </button>
+    @if (showControls) {
+      <button mat-icon-button aria-label="Options for Event Display" (click)="drawer.toggle()">
+        <mat-icon>filter_list</mat-icon>
+      </button>
+    }
   </mat-card-title>
   <mat-card-content>
     <mat-drawer-container>
-      <mat-drawer #drawer class="sidenav" mode="side" position="end" [opened]="sidebarOpened" (openedChange)="sidebarOpened = $event">
-        <div class="options">
-          <h4>{{ 'EVENT_DISPLAY.VISIBILITY' | translate }}</h4>
-          <div fxLayout="column" fxLayoutGap="8px">
-            <mat-slide-toggle [(ngModel)]="sideViewsShown">{{ 'EVENT_DISPLAY.SIDE_VIEWS' | translate }}</mat-slide-toggle>
-            <mat-slide-toggle [(ngModel)]="detectorShown">{{ 'EVENT_DISPLAY.DETECTOR' | translate }}</mat-slide-toggle>
+      @if (showControls) {
+        <mat-drawer #drawer class="sidenav" mode="side" position="end" [opened]="sidebarOpened" (openedChange)="sidebarOpened = $event">
+          <div class="options">
+            <h4>{{ 'EVENT_DISPLAY.VISIBILITY' | translate }}</h4>
+            <div fxLayout="column" fxLayoutGap="8px">
+              <mat-slide-toggle [(ngModel)]="sideViewsShown">{{ 'EVENT_DISPLAY.SIDE_VIEWS' | translate }}</mat-slide-toggle>
+              <mat-slide-toggle [(ngModel)]="detectorShown">{{ 'EVENT_DISPLAY.DETECTOR' | translate }}</mat-slide-toggle>
+              @if (hasClusters) {
+                <mat-slide-toggle [(ngModel)]="clustersShown">{{ 'EVENT_DISPLAY.CLUSTERS' | translate }}</mat-slide-toggle>
+              }
+              <mat-slide-toggle [(ngModel)]="axesShown">{{ 'EVENT_DISPLAY.AXES' | translate }}</mat-slide-toggle>
+              <mat-slide-toggle [(ngModel)]="tracksShown">{{ 'EVENT_DISPLAY.TRACKS' | translate }}</mat-slide-toggle>
+              <mat-slide-toggle [(ngModel)]="decaysShown">{{ 'EVENT_DISPLAY.DECAYS' | translate }}</mat-slide-toggle>
+            </div>
             @if (hasClusters) {
-              <mat-slide-toggle [(ngModel)]="clustersShown">{{ 'EVENT_DISPLAY.CLUSTERS' | translate }}</mat-slide-toggle>
+              <h4>{{ 'EVENT_DISPLAY.CLUSTER_SIZE' | translate }}</h4>
+              <mat-radio-group [(ngModel)]="clusterSize" fxLayout="row" fxLayoutAlign="space-around start">
+                <mat-radio-button [value]="0.1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
+                <mat-radio-button [value]="0.25">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
+                <mat-radio-button [value]="0.5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
+              </mat-radio-group>
             }
-            <mat-slide-toggle [(ngModel)]="axesShown">{{ 'EVENT_DISPLAY.AXES' | translate }}</mat-slide-toggle>
-            <mat-slide-toggle [(ngModel)]="tracksShown">{{ 'EVENT_DISPLAY.TRACKS' | translate }}</mat-slide-toggle>
-            <mat-slide-toggle [(ngModel)]="decaysShown">{{ 'EVENT_DISPLAY.DECAYS' | translate }}</mat-slide-toggle>
-          </div>
-          @if (hasClusters) {
-            <h4>{{ 'EVENT_DISPLAY.CLUSTER_SIZE' | translate }}</h4>
-            <mat-radio-group [(ngModel)]="clusterSize" fxLayout="row" fxLayoutAlign="space-around start">
-              <mat-radio-button [value]="0.1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
-              <mat-radio-button [value]="0.25">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
-              <mat-radio-button [value]="0.5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
+            <h4>{{ 'EVENT_DISPLAY.TRACK_WIDTH' | translate }}</h4>
+            <mat-radio-group [(ngModel)]="trackWidth" fxLayout="row" fxLayoutAlign="space-around start">
+              <mat-radio-button [value]="1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
+              <mat-radio-button [value]="2">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
+              <mat-radio-button [value]="5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
             </mat-radio-group>
-          }
-          <h4>{{ 'EVENT_DISPLAY.TRACK_WIDTH' | translate }}</h4>
-          <mat-radio-group [(ngModel)]="trackWidth" fxLayout="row" fxLayoutAlign="space-around start">
-            <mat-radio-button [value]="1">{{ 'EVENT_DISPLAY.S' | translate }}</mat-radio-button>
-            <mat-radio-button [value]="2">{{ 'EVENT_DISPLAY.M' | translate }}</mat-radio-button>
-            <mat-radio-button [value]="5">{{ 'EVENT_DISPLAY.L' | translate }}</mat-radio-button>
-          </mat-radio-group>
-          <h4>Camera</h4>
-          <mat-radio-group [(ngModel)]="cameraMode" (change)="onCameraModeChange()" fxLayout="column" fxLayoutGap="4px">
-            <mat-radio-button value="centered">Centered</mat-radio-button>
-            <mat-radio-button value="free">Free</mat-radio-button>
-          </mat-radio-group>
-        </div>
-      </mat-drawer>
+            <h4>Camera</h4>
+            <mat-radio-group [(ngModel)]="cameraMode" (change)="onCameraModeChange()" fxLayout="column" fxLayoutGap="4px">
+              <mat-radio-button value="centered">Centered</mat-radio-button>
+              <mat-radio-button value="free">Free</mat-radio-button>
+            </mat-radio-group>
+          </div>
+        </mat-drawer>
+      }
       <mat-drawer-content>
         <div id="content" [class.disabled]="loading" fxLayout="row" fxLayoutAlign="center stretch">
-          <button [disabled]="previousEventButtonDisabled" fxFlexAlign="center" (click)="onPreviousEventClick()" mat-icon-button aria-label="Previous Event button">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
+          @if (showControls) {
+            <button [disabled]="previousEventButtonDisabled" fxFlexAlign="center" (click)="onPreviousEventClick()" mat-icon-button aria-label="Previous Event button">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+          }
           <div id="render-area" fxFlex="1 0.5 calc(100%-100px)" (pointerleave)="onPointerLeave()" tabindex="0">
             <canvas #canvas (pointerdown)="onPointerDown($event); $event.currentTarget.parentElement?.focus()" (pointermove)="onPointerMove($event)" (pointerleave)="onPointerLeave()"></canvas>
             @if (vertexMarkerTooltip) {
@@ -105,9 +111,11 @@
         </svg> -->
       <!-- </div> -->
     </div>
-    <button [disabled]="nextEventButtonDisabled" fxFlexAlign="center" (click)="onNextEventClick()" mat-icon-button aria-label="Next Event button">
-      <mat-icon>chevron_right</mat-icon>
-    </button>
+    @if (showControls) {
+      <button [disabled]="nextEventButtonDisabled" fxFlexAlign="center" (click)="onNextEventClick()" mat-icon-button aria-label="Next Event button">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    }
   </div>
   @if (loading) {
     <div id="spinner" fxLayout="column" fxLayoutAlign="center center"><mat-spinner></mat-spinner></div>
