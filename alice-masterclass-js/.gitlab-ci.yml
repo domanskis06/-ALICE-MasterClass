@@ -51,6 +51,29 @@ unit_tests:
     - npm run build
     - npm run test:ci
 
+e2e_playwright:
+  stage: test
+  allow_failure: true
+  needs:
+    - job: convert_strangeness_events
+      artifacts: true
+    - job: convert_strangeness_invariant
+      artifacts: true
+  image: mcr.microsoft.com/playwright:v1.59.1-noble
+  variables:
+    CI: "true"
+  before_script:
+    - npm install -g @angular/cli@21.0.0
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv python3-pip
+    - python3 -m venv .venv-e2e-django
+    - . .venv-e2e-django/bin/activate && pip install -r ../alice-masterclass-django/requirements.txt
+  script:
+    - |
+      . .venv-e2e-django/bin/activate
+      export E2E_PYTHON="$(command -v python)"
+      npm ci
+      npm run e2e:django
+
 build_website:
   stage: build_website
   only:

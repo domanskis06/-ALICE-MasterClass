@@ -13,6 +13,9 @@
     "ng:serve": "ng serve -c web -o",
     "test": "ng test --watch=false",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadlessCI",
+    "e2e": "playwright test",
+    "e2e:django": "playwright test --config=playwright.django.config.ts",
+    "e2e:ui": "playwright test --ui",
     "lint": "ng lint"
   },
   "dependencies": {
@@ -45,6 +48,7 @@
     "@angular/build": "^21.0.0",
     "@angular/cli": "^21.0.0",
     "@angular/compiler-cli": "^21.0.0",
+    "@playwright/test": "^1.59.0",
     "@babel/runtime": "latest",
     "@nwaltham/fmin": "0.0.3-2",
     "@types/d3": "6.7.0",
