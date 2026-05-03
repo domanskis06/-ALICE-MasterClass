@@ -2,6 +2,7 @@
 
 # compiled output
 /dist
+/dist-debug
 /tmp
 /out-tsc
 /app-builds
@@ -39,11 +40,6 @@ src/**/*.js
 npm-debug.log
 testem.log
 /typings
-
-# e2e
-/e2e/*.js
-!/e2e/protractor.conf.js
-/e2e/*.map
 
 # System Files
 .DS_Store

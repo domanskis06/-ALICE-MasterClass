@@ -3,7 +3,6 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { MatIconRegistry } from "@angular/material/icon";
 import { DomSanitizer } from "@angular/platform-browser";
-import { ElectronService } from '../core/services';
 import { AuthDialogComponent } from '../auth-dialog/auth-dialog.component';
 import { ApiService } from '../shared/services/api.service';
 import { AppConfig } from '../../environments/environment';
@@ -35,7 +34,6 @@ export class HomeComponent implements OnInit {
   private readonly passwordUrlKey: string = 'password';
   
   constructor(
-    public electronService: ElectronService,
     private apiService: ApiService,
     private dialog: MatDialog,
     private route: ActivatedRoute,

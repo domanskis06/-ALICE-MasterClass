@@ -1,27 +1,49 @@
-# Introduction
+# ALICE MasterClass (student web app)
 
-A restart of the ALICE MasterClass for the Web project with focus on modularity. Designed to work as a website as well as a standalone desktop application powered by the Electron project.
+Angular application for the ALICE MasterClass student experience, served in the browser.
 
-## Getting Started
+## Prerequisites
 
-Install NodeJS from [here](https://nodejs.org).
+- [Node.js](https://nodejs.org) (LTS recommended)
 
-Then, clone this repository locally:
+## Setup
 
-``` bash
+```bash
 git clone https://gitlab.cern.ch/alice-masterclass/alice-masterclass-js.git
-```
-
-Install dependencies with npm:
-
-``` bash
+cd alice-masterclass-js
 npm install
 ```
 
-## Run as an app (Electron mode)
+## Run locally
 
-Run `npm run start` in the terminal.
+Development server with the `web` environment (API defaults to `http://localhost:8000/api/v1/`):
 
-## Run as a website (Browser mode)
+```bash
+npm start
+```
 
-Run `npm run ng:serve` in the terminal.
+Equivalent:
+
+```bash
+npm run ng:serve
+```
+
+Then open the URL shown in the terminal (typically [http://localhost:4200](http://localhost:4200)).
+
+## Build
+
+```bash
+npm run build          # default configuration
+npm run build:dev      # dev environment
+npm run build:prod     # production (runs `make-prod.mjs` first)
+```
+
+Output is written to `dist/`.
+
+## Tests
+
+```bash
+npm test
+```
+
+Requires a Chrome/Chromium installation (set `CHROME_BIN` if the binary is not on `PATH`).

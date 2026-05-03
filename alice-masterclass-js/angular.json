@@ -6,7 +6,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "angular-electron": {
+    "alice-masterclass-web": {
       "root": "",
       "sourceRoot": "src",
       "projectType": "application",
@@ -90,24 +90,24 @@
         "serve": {
           "builder": "@angular-builders/custom-webpack:dev-server",
           "options": {
-            "buildTarget": "angular-electron:build"
+            "buildTarget": "alice-masterclass-web:build"
           },
           "configurations": {
             "dev": {
-              "buildTarget": "angular-electron:build:dev"
+              "buildTarget": "alice-masterclass-web:build:dev"
             },
             "web": {
-              "buildTarget": "angular-electron:build:web"
+              "buildTarget": "alice-masterclass-web:build:web"
             },
             "production": {
-              "buildTarget": "angular-electron:build:production"
+              "buildTarget": "alice-masterclass-web:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n",
           "options": {
-            "buildTarget": "angular-electron:build"
+            "buildTarget": "alice-masterclass-web:build"
           }
         },
         "test": {
@@ -140,23 +140,7 @@
           "options": {
             "eslintConfig": ".eslintrc.json",
             "lintFilePatterns": [
-              "src/**/*.ts",
-              "main.ts"
-            ]
-          }
-        }
-      }
-    },
-    "angular-electron-e2e": {
-      "root": "e2e",
-      "projectType": "application",
-      "architect": {
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "eslintConfig": ".eslintrc.json",
-            "lintFilePatterns": [
-              "e2e/**/*.ts"
+              "src/**/*.ts"
             ]
           }
         }

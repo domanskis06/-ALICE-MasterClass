@@ -1,7 +1,6 @@
 stages:
   - convert
   - test
-  - build_apps
   - build_website
   - dockerize
   - openshift_redeploy
@@ -34,32 +33,6 @@ convert_strangeness_invariant:
     paths:
       - src/assets/exercises/strangeness/part2
 
-# build_electron_app_windows:
-#   stage: build_apps
-#   tags:
-#     - win10
-#   only:
-#     - tags
-#   except:
-#     - branches
-#   needs:
-#     - job: convert_strangeness_events
-#       artifacts: true
-#     - job: convert_strangeness_invariant
-#       artifacts: true
-#   script:
-#     - npm ci
-#     - $Env:VERSION=$Env:CI_COMMIT_TAG
-#     - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
-#     - mv package_version.json package.json
-#     - npm run electron:build_win
-#     - $Env:NAME = node -p "require('./electron-builder.json').productName"
-#     - mkdir release
-#     - cp ./release_files/"$Env:NAME"_* ./release
-#   artifacts:
-#     paths:
-#       - release/
-
 unit_tests:
   stage: test
   needs:
@@ -67,70 +40,16 @@ unit_tests:
     artifacts: true
   - job: convert_strangeness_invariant
     artifacts: true
-  image: timbru31/node-chrome:fermium
+  image: node:22-bookworm
+  variables:
+    CHROME_BIN: "/usr/bin/chromium"
   before_script:
-    - npm install -g @angular/cli@12.0.2
-    - npm install -g npm@8.5.0
+    - apt-get update && apt-get install -y chromium
+    - npm install -g @angular/cli@21.0.0
   script:
     - npm ci
     - npm run build
     - npm run test:ci
-
-build_electron_app_windows:
-  stage: build_apps
-  only:
-    - tags
-  except:
-    - branches
-  needs:
-    - job: convert_strangeness_events
-      artifacts: true
-    - job: convert_strangeness_invariant
-      artifacts: true
-  image: electronuserland/builder:wine
-  before_script:
-    - npm install -g @angular/cli@12.0.2
-    - npm install -g npm@8.5.0
-  script:
-    - npm ci
-    - export VERSION=$CI_COMMIT_TAG
-    - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
-    - mv package_version.json package.json
-    - npm run electron:build_win
-    - export NAME=$(node -p "require('./electron-builder.json').productName")
-    - mkdir release
-    - cp ./release_files/"$NAME"_* ./release
-  artifacts:
-    paths:
-      - release/
-
-build_electron_app_linux:
-  stage: build_apps
-  only:
-    - tags
-  except:
-    - branches
-  needs:
-    - job: convert_strangeness_events
-      artifacts: true
-    - job: convert_strangeness_invariant
-      artifacts: true
-  image: electronuserland/builder:wine
-  before_script:
-    - npm install -g @angular/cli@12.0.2
-    - npm install -g npm@8.5.0
-  script:
-    - npm ci
-    - export VERSION=$CI_COMMIT_TAG
-    - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
-    - mv package_version.json package.json
-    - npm run electron:build_lin
-    - export NAME=$(node -p "require('./electron-builder.json').productName")
-    - mkdir release
-    - cp ./release_files/"$NAME"_* ./release
-  artifacts:
-    paths:
-      - release/
 
 build_website:
   stage: build_website
@@ -139,24 +58,18 @@ build_website:
   except:
     - branches
   needs:
-    - job: build_electron_app_windows
-      artifacts: true
-    - job: build_electron_app_linux
-      artifacts: true
     - job: convert_strangeness_events
       artifacts: true
     - job: convert_strangeness_invariant
       artifacts: true
-  image: electronuserland/builder:wine
+  image: node:22-bookworm
   before_script:
-    - npm install -g @angular/cli@12.0.2
-    - npm install -g npm@8.5.0
+    - npm install -g @angular/cli@21.0.0
   script:
     - npm ci
     - export VERSION=$CI_COMMIT_TAG
     - node -p "let data = require('./package.json'); data.version='$VERSION'; JSON.stringify(data, null, 2)" > package_version.json
     - mv package_version.json package.json
-    - cp ./release/* ./src/assets/apps/
     - npm run build:prod
     - cp .htaccess ./dist/
   artifacts:

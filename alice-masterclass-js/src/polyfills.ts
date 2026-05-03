@@ -1,22 +1,3 @@
-
-if (typeof (window as any).global === 'undefined') {
-  (window as any).global = window;
-}
-
-if (typeof (window as any).process === 'undefined') {
-  (window as any).process = { env: {} } as any;
-}
-
-if (typeof (window as any).require === 'undefined') {
-  (window as any).require = function(module: string) {
-    console.warn('require() called in browser context for module:', module);
-    // Return a mock constructor function that can be called with 'new'
-    const MockConstructor: any = function() { return {}; };
-    MockConstructor.prototype = {};
-    return MockConstructor;
-  };
-}
-
 /**
  * This file includes polyfills needed by Angular and is loaded before the app.
  * You can add your own extra polyfills to this file.
@@ -41,7 +22,7 @@ if (typeof (window as any).require === 'undefined') {
  * By default, zone.js will patch all possible macroTask and DomEvents
  * user can disable parts of macroTask/DomEvents patch by setting following flags
  * because those flags need to be set before `zone.js` being loaded, and webpack
- * will put import in the top of bundle, so user need to create a separate file
+ * will put import in the top of the bundle, so user need to create a separate file
  * in this directory (for example: zone-flags.ts), and put the following flags
  * into that file, and then add the following code before importing zone.js.
  * import './zone-flags.ts';
@@ -70,4 +51,3 @@ import 'zone.js';  // Included with Angular CLI.
 /***************************************************************************************************
  * APPLICATION IMPORTS
  */
-

@@ -1,5 +1,4 @@
 import { Component } from '@angular/core';
-import { ElectronService } from './core/services';
 import { TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { AppConfig } from '../environments/environment';
 import { ApiService } from './shared/services/api.service';
@@ -14,7 +13,7 @@ export class AppComponent {
   readonly LANGUAGES: Array<string> = ['en'];//, 'de', 'es'];
   readonly languageKey: string = 'language';
 
-  constructor(private electronService: ElectronService, private translateService: TranslateService, private apiService: ApiService) {
+  constructor(private translateService: TranslateService, private apiService: ApiService) {
     this.translateService.setDefaultLang(this.LANGUAGES[0]);
 
     let language = localStorage.getItem(this.languageKey);
@@ -35,15 +34,7 @@ export class AppComponent {
 
     if (AppConfig.production) {
       console.log('AppConfig', AppConfig);
-
-      if (electronService.isElectron) {
-        console.log(process.env);
-        console.log('Run in electron');
-        console.log('Electron ipcRenderer', this.electronService.ipcRenderer);
-        console.log('NodeJS childProcess', this.electronService.childProcess);
-      } else {
-        console.log('Run in browser');
-      }
+      console.log('Run in browser');
     }
   }
 

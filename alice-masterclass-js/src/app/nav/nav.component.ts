@@ -5,7 +5,6 @@ import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
-import { ElectronService } from '../core/services';
 import { InstructionsDialogComponent } from '../instructions-dialog/instructions-dialog.component';
 import { AuthDialogComponent } from '../auth-dialog/auth-dialog.component';
 import { InstructionsProvider } from '../shared/interfaces';
@@ -29,7 +28,6 @@ export class NavComponent implements OnInit {
   instructionsComponent: Type<any> = null;
 
   constructor(
-    public electronService: ElectronService,
     private apiService: ApiService,
     private breakpointObserver: BreakpointObserver,
     public translate: TranslateService,
