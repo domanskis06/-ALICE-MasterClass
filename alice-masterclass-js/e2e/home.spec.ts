@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { dismissPasswordDialog } from './fixtures';
 
 test.describe('Home (smoke)', () => {
-  test('shows welcome heading', async ({ page }) => {
+  test('shows welcome heading', { tag: ['@smoke'] }, async ({ page }) => {
     await dismissPasswordDialog(page);
     await page.goto('/home');
     await expect(
@@ -10,7 +10,7 @@ test.describe('Home (smoke)', () => {
     ).toBeVisible();
   });
 
-  test('default route redirects to home', async ({ page }) => {
+  test('default route redirects to home', { tag: ['@smoke'] }, async ({ page }) => {
     await dismissPasswordDialog(page);
     await page.goto('/');
     await expect(page).toHaveURL(/\/home$/);

@@ -53,7 +53,6 @@ unit_tests:
 
 e2e_playwright:
   stage: test
-  allow_failure: true
   needs:
     - job: convert_strangeness_events
       artifacts: true
@@ -67,12 +66,24 @@ e2e_playwright:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv python3-pip
     - python3 -m venv .venv-e2e-django
     - . .venv-e2e-django/bin/activate && pip install -r ../alice-masterclass-django/requirements.txt
+    - (cd ../alice-masterclass-teacher && npm ci)
   script:
     - |
       . .venv-e2e-django/bin/activate
       export E2E_PYTHON="$(command -v python)"
       npm ci
       npm run e2e:django
+      npm run e2e:teacher
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - playwright-report/
+      - playwright-report-django/
+      - playwright-report-teacher/
+      - test-results/
+      - test-results-django/
+      - test-results-teacher/
 
 build_website:
   stage: build_website

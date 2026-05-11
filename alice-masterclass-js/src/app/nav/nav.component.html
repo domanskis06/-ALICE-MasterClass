@@ -6,7 +6,7 @@
         <a mat-list-item routerLink="/home">{{ 'HOME.HOME_MENU' | translate }}</a>
         <h1 matSubheader>{{ 'STRANGENESS.TITLE' | translate }}</h1>
         <mat-divider></mat-divider>
-        <a mat-list-item routerLink="/strangeness-visual-analysis">{{ 'STRANGENESS.VISUAL_ANALYSIS_MENU' | translate }}</a>
+        <a mat-list-item routerLink="/strangeness-visual-analysis" data-testid="nav-link-visual-analysis">{{ 'STRANGENESS.VISUAL_ANALYSIS_MENU' | translate }}</a>
         <a mat-list-item routerLink="/strangeness-large-scale-analysis">{{ 'STRANGENESS.LARGE_SCALE_ANALYSIS_MENU' | translate }}</a>
         <div fxFlex="grow"></div>
         <a mat-list-item (click)="onPasswordButtonClicked()">{{ 'PASSWORD.PASSWORD_MENU' | translate }}</a>
@@ -22,6 +22,7 @@
           <button
             type="button"
             aria-label="Toggle sidenav"
+            data-testid="nav-menu-toggle"
             mat-icon-button
             (click)="drawer.toggle()">
             <mat-icon aria-label="Side nav toggle icon">menu</mat-icon>

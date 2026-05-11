@@ -1,4 +1,6 @@
-/* Globalne style aplikacji */
+/* Globalne style aplikacji — Material Icons z node_modules (działa offline / bez Google Fonts) */
+@import url('material-icons/iconfont/material-icons.css');
+
 html, body {
   margin: 0;
   padding: 0;

@@ -33,7 +33,11 @@ src/**/*.js
 
 # Playwright
 /playwright-report/
+/playwright-report-django/
+/playwright-report-teacher/
 /test-results/
+/test-results-django/
+/test-results-teacher/
 /blob-report/
 
 # misc

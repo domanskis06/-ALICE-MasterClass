@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
  * does not require a running Django server.
  */
 test.describe('API stub (check_session)', () => {
-  test('stubbed session updates document title', async ({ page }) => {
+  test('stubbed session updates document title', { tag: ['@smoke'] }, async ({ page }) => {
     await page.route('**/api/v1/check_session/**', async (route) => {
       if (route.request().method() !== 'PUT') {
         await route.continue();
