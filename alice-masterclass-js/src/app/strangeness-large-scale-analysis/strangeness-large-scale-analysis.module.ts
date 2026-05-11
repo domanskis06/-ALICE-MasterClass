@@ -10,6 +10,7 @@ import { FitSelectorComponent } from './fit-selector/fit-selector.component';
 import { HistogramDisplayComponent } from './histogram-display/histogram-display.component';
 import { ResultsComponent } from './results/results.component'
 import { FitService } from '../shared/services/fit.service';
+import { LsaTutorialService } from './lsa-tutorial/lsa-tutorial.service';
 
 @NgModule({
   declarations: [
@@ -26,7 +27,8 @@ import { FitService } from '../shared/services/fit.service';
     AngularModule
   ],
   providers: [
-    FitService
+    FitService,
+    LsaTutorialService,
   ]
 })
 export class StrangenessLargeScaleAnalysisModule { }

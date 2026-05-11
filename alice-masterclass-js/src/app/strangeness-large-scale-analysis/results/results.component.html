@@ -1,4 +1,4 @@
-<mat-card appearance="outlined" fxFill fxLayout="column">
+<mat-card appearance="outlined" fxFill fxLayout="column" id="lsa-tour-results-card">
   <mat-card-title fxLayout="row" fxLayoutAlign="space-between start">
     <span class="title">{{ 'STRANGENESS.RESULTS.TITLE' | translate }}</span>
     <span
@@ -6,6 +6,7 @@
       [matTooltip]="'PASSWORD.NO_TOKEN_TOOLTIP' | translate" matTooltipPosition="before"
       >
       <button
+        id="lsa-tour-upload-button"
         [disabled]="!apiService.isAuthenticated"
         mat-raised-button
         color="warn"
@@ -23,7 +24,7 @@
     </span>
   </mat-card-title>
   <mat-card-content fxFlex="grow">
-    <div class="mat-elevation-z2">
+    <div id="lsa-tour-results-table" class="mat-elevation-z2">
       <table mat-table [dataSource]="tableRows">
 
         <ng-container matColumnDef="type">

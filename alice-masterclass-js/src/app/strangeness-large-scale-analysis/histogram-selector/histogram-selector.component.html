@@ -1,4 +1,4 @@
-<mat-card appearance="outlined">
+<mat-card appearance="outlined" id="lsa-tour-histogram-selector">
   <mat-card-title class="title">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.TITLE' | translate }}</mat-card-title>
   <mat-card-content>
     <form [formGroup]="histogramSelectorForm" (ngSubmit)="onSubmit()"
@@ -7,7 +7,7 @@
       fxLayoutGap="10px"
       >
       <div fxLayout="row" fxLayout.xs="column" fxLayoutAlign.xs="start stretch" fxLayoutGap="10px">
-        <mat-form-field>
+        <mat-form-field id="lsa-tour-particle-field">
           <mat-label>{{ 'STRANGENESS.HISTOGRAM_SELECTOR.SELECT_PARTICLE' | translate }}</mat-label>
           <mat-select formControlName="type">
             @for (type of particileTypes; track type) {
@@ -15,7 +15,7 @@
             }
           </mat-select>
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field id="lsa-tour-collision-field">
           <mat-label>{{ 'STRANGENESS.HISTOGRAM_SELECTOR.SELECT_COLLISION' | translate }}</mat-label>
           <mat-select formControlName="collisionCentrality">
             @for (option of collisionCentralityOptions; track option; let i = $index) {
@@ -26,7 +26,7 @@
           </mat-select>
         </mat-form-field>
       </div>
-      <button [disabled]="histogramSelectorForm.invalid" mat-raised-button type="submit" color="primary">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.OPEN_HISTOGRAM' | translate }}</button>
+      <button id="lsa-tour-open-histogram" [disabled]="histogramSelectorForm.invalid" mat-raised-button type="submit" color="primary">{{ 'STRANGENESS.HISTOGRAM_SELECTOR.OPEN_HISTOGRAM' | translate }}</button>
     </form>
   </mat-card-content>
 </mat-card>

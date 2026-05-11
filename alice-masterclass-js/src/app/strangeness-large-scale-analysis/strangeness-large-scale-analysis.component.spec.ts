@@ -17,6 +17,7 @@ import { HistogramDisplayComponent } from './histogram-display/histogram-display
 import { ResultsComponent } from './results/results.component';
 
 import { StrangenessLargeScaleAnalysisComponent } from './strangeness-large-scale-analysis.component';
+import { LsaTutorialService } from './lsa-tutorial/lsa-tutorial.service';
 
 describe('StrangenessLargeScaleAnalysisComponent', () => {
   let component: StrangenessLargeScaleAnalysisComponent;
@@ -28,6 +29,17 @@ describe('StrangenessLargeScaleAnalysisComponent', () => {
   dialogRefSpyObj.componentInstance = { body: '', proceedClickedEvent: of('0') };
 
   beforeEach(async () => {
+    const tutorialSpy = jasmine.createSpyObj('LsaTutorialService', [
+      'shouldShow',
+      'dismiss',
+      'startMainTour',
+      'notifyHistogramReady',
+      'notifyFitClicked',
+      'notifyAcceptClicked',
+      'destroyDriver',
+    ]);
+    tutorialSpy.shouldShow.and.returnValue(false);
+
     await TestBed.configureTestingModule({
     declarations: [
         StrangenessLargeScaleAnalysisComponent,
@@ -40,7 +52,11 @@ describe('StrangenessLargeScaleAnalysisComponent', () => {
     imports: [AngularModule,
         SharedModule,
         TranslateModule.forRoot()],
-    providers: [FitService, provideHttpClient(withInterceptorsFromDi())]
+    providers: [
+      FitService,
+      { provide: LsaTutorialService, useValue: tutorialSpy },
+      provideHttpClient(withInterceptorsFromDi()),
+    ]
 })
     .compileComponents();
   });

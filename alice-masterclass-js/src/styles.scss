@@ -1,5 +1,21 @@
 /* Globalne style aplikacji — Material Icons z node_modules (działa offline / bez Google Fonts) */
 @import url('material-icons/iconfont/material-icons.css');
+@import "driver.js/dist/driver.css";
+
+.driver-popover.lsa-driver-popover .driver-popover-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.driver-popover.lsa-driver-popover .driver-popover-description {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.driver-popover.lsa-driver-popover .driver-popover-description sub,
+.driver-popover.lsa-driver-popover .driver-popover-description sup {
+  font-size: 0.75em;
+}
 
 html, body {
   margin: 0;

@@ -1,4 +1,15 @@
-import { Component, OnInit, Type } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  DestroyRef,
+  inject,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  Type,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpErrorResponse } from '@angular/common/http';
 import { TranslateService } from '@ngx-translate/core';
@@ -12,6 +23,8 @@ import { InstructionsComponent } from './instructions/instructions.component';
 import { StrangenessDataService } from '../services/strangeness-data.service';
 import { ParticleType, CollisionType, CentralityType, LargeScaleAnalysisResultsEntry } from '../shared/services/api.service';
 import { FitService } from '../shared/services/fit.service';
+import { LsaTutorialService } from './lsa-tutorial/lsa-tutorial.service';
+import { LsaTutorialWelcomeDialogComponent } from './lsa-tutorial/lsa-tutorial-welcome-dialog.component';
 
 export interface OpenHistogramEntry {
   particle: ParticleType;
@@ -34,8 +47,13 @@ export interface AddToHistogramEntry {
     styleUrls: ['./strangeness-large-scale-analysis.component.scss'],
     standalone: false
 })
-export class StrangenessLargeScaleAnalysisComponent implements OnInit, InstructionsProvider {
-  
+export class StrangenessLargeScaleAnalysisComponent implements OnInit, AfterViewInit, OnDestroy, InstructionsProvider {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly zone = inject(NgZone);
+
+  /** Ensures we only attach one welcome dialog per component instance (incl. debounced retries). */
+  private welcomeDialogScheduled = false;
+
   instructionsComponent: Type<any> = InstructionsComponent;
 
   private particle: ParticleType = null;
@@ -50,11 +68,54 @@ export class StrangenessLargeScaleAnalysisComponent implements OnInit, Instructi
     public dataService: StrangenessDataService,
     private fitService: FitService,
     private translateService: TranslateService,
-    private snackBar: MatSnackBar) { }
-  
+    private snackBar: MatSnackBar,
+    private readonly dialog: MatDialog,
+    private readonly lsaTutorial: LsaTutorialService,
+  ) {}
+
   ngOnInit(): void {
     this.fitService.result = null;
     this.fitService.data.data = [];
+  }
+
+  ngAfterViewInit(): void {
+    // Defer past the first CD/layout pass so MatDialog + overlay reliably attach (first load and F5).
+    this.zone.runOutsideAngular(() => {
+      const run = () => this.zone.run(() => this.tryOpenTutorialWelcome());
+      setTimeout(run, 0);
+      setTimeout(run, 120);
+    });
+  }
+
+  private tryOpenTutorialWelcome(): void {
+    if (this.welcomeDialogScheduled) {
+      return;
+    }
+    if (!this.lsaTutorial.shouldShow()) {
+      return;
+    }
+    this.welcomeDialogScheduled = true;
+    this.dialog
+      .open(LsaTutorialWelcomeDialogComponent, {
+        width: '560px',
+        autoFocus: true,
+        disableClose: true,
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((start: boolean | undefined) => {
+        if (start === true) {
+          this.lsaTutorial.startMainTour();
+        } else if (start === false) {
+          // Only permanently dismiss when the user explicitly clicks Skip.
+          this.lsaTutorial.dismiss();
+        }
+        // undefined = dialog closed by some other means — do not dismiss.
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.lsaTutorial.destroyDriver(true);
   }
 
   private loadHistogram() {
@@ -92,6 +153,7 @@ export class StrangenessLargeScaleAnalysisComponent implements OnInit, Instructi
         }
 
         this.loading = false;
+        this.lsaTutorial.notifyHistogramReady();
       },
       (error: HttpErrorResponse) => {
       }
@@ -103,6 +165,7 @@ export class StrangenessLargeScaleAnalysisComponent implements OnInit, Instructi
     this.fitService.signalFitRange = event.signalFitRange;
 
     this.fitService.fit();
+    this.lsaTutorial.notifyFitClicked();
   }
 
   onAddFitResult(): void {
@@ -117,6 +180,7 @@ export class StrangenessLargeScaleAnalysisComponent implements OnInit, Instructi
     const value: LargeScaleAnalysisResultsEntry = {particle: this.particle, collision: this.collision, centrality: this.centrality, signal: this.fitService.result.signal};
 
     this.dataService.addLargeScaleAnalysisResult(key, value);
+    this.lsaTutorial.notifyAcceptClicked();
   }
 
   onRangeChange(event: [number, number]): void {
