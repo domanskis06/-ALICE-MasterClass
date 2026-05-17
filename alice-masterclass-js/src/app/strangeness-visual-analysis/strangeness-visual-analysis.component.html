@@ -1,19 +1,67 @@
 <div fxFlex="grow">
+  @if (vaCoachOverlayVisible) {
+    <div class="va-coach-layer" aria-live="polite">
+      @if (vaCoachWelcomePhase) {
+        <mat-card appearance="outlined" class="va-coach-card">
+          <mat-card-title>{{ 'VA_COACH.WELCOME_TITLE' | translate }}</mat-card-title>
+          <mat-card-content class="va-coach-text">
+            <p>{{ 'VA_COACH.WELCOME_P1' | translate }}</p>
+            <p>{{ 'VA_COACH.WELCOME_P2' | translate }}</p>
+            <p>{{ 'VA_COACH.WELCOME_P3' | translate }}</p>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-flat-button color="primary" type="button" (click)="onVaCoachWelcomeContinue()">
+              {{ 'VA_COACH.WELCOME_CONTINUE' | translate }}
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      } @else if (vaCoachVictoryPhase) {
+        <mat-card appearance="outlined" class="va-coach-card">
+          <mat-card-title>{{ 'VA_COACH.DONE_TITLE' | translate }}</mat-card-title>
+          <mat-card-content class="va-coach-text">
+            <p>{{ 'VA_COACH.DONE_BODY' | translate }}</p>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-flat-button color="primary" type="button" (click)="onVaCoachVictoryDismiss()">
+              {{ 'VA_COACH.DONE_BUTTON' | translate }}
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      } @else {
+        <mat-card appearance="outlined" class="va-coach-card">
+          <mat-card-title>{{ 'VA_COACH.DRAG_TITLE' | translate }}</mat-card-title>
+          <mat-card-content class="va-coach-text">
+            <p>{{ 'VA_COACH.DRAG_STEP' | translate:{ current: vaCoachPieceHintIndex + 1, total: ALICE_DETECTOR_MODEL.length } }}</p>
+            <p>{{ 'VA_COACH.DRAG_INSTRUCTION' | translate }}</p>
+            <p class="va-coach-part-name">
+              <strong
+                [translate]="vaCoachCurrentPiecePresentation.labelKey"
+                [translateParams]="vaCoachCurrentPiecePresentation.labelParams || {}"
+              ></strong>
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+  }
+
   <div class="container" fxFlex="grow" fxLayoutGap="10px" fxLayout="column">
     <app-event-display
-      [sideViewsShown]="true"
       [decaysShown]="true"
 
       [hasClusters]="event.clusters.length !== 0"
       [landscape]="(isLandscape$ | async)"
+      [assemblyCoachHighlightAssetPath]="assemblyCoachHighlightPath"
       [detectorModel]="ALICE_DETECTOR_MODEL"
       [detectorRphi]="ALICE_DETECTOR_RPHI"
       [detectorRhoz]="ALICE_DETECTOR_RHOZ"
+      [showProtonCollisionIntro]="eventID === 0"
       [event]="event"
       [previousEventButtonDisabled]="(eventID - 1) < 0"
       (previousEvent)="onPreviousEvent()"
       [nextEventButtonDisabled]="(eventID + 1) >= maxEvents"
       (nextEvent)="onNextEvent()"
+      (detectorAssemblyPiecePlaced)="onDetectorAssemblyPiecePlaced($event)"
       (trackClickedEvent)="onTrackClicked($event)"
       >
       <div class="dataset-controls">
@@ -33,9 +81,6 @@
             }
           </mat-select>
         </mat-form-field>
-        <button mat-raised-button color="warn" class="sandbox-button" (click)="onSandboxModeClicked()">
-          Sandbox Mode
-        </button>
       </div>
       <span>{{ 'EVENT_DISPLAY.EVENT' | translate }} {{ eventID }}</span>
       @if (isCurrentEventDone) {

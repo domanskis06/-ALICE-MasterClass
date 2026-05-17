@@ -1,4 +1,5 @@
 import { Component, ElementRef, Input, Output, AfterViewInit, ViewChild, EventEmitter, HostBinding, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { CdkDragEnd } from '@angular/cdk/drag-drop';
 import { Observable, Subscription, animationFrameScheduler, scheduled } from 'rxjs';
 import { repeat } from 'rxjs/operators';
 import * as THREE from 'three';
@@ -11,6 +12,21 @@ import { SVGLoader, SVGResult } from 'three/examples/jsm/loaders/SVGLoader';
 import { Event, Track, TrackType } from '../../models';
 import { trackColor, clusterColor, positiveTrackColor, negativeTrackColor, bachelorTrackColor, highlightColor } from '../../globals';
 
+/** One imported GLB/GLTF root for detector layer visibility toggles. */
+export interface DetectorPartToggleModel {
+  assetPath: string;
+  labelKey: string;
+  labelParams?: Record<string, string>;
+  visible: boolean;
+}
+
+export interface DetectorPaletteItem {
+  assetPath: string;
+  labelKey: string;
+  labelParams?: Record<string, string>;
+  placed: boolean;
+}
+
 @Component({
   selector: 'app-event-display',
   templateUrl: './event-display.component.html',
@@ -20,6 +36,8 @@ import { trackColor, clusterColor, positiveTrackColor, negativeTrackColor, bache
 export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   // Use GL_LINES primitive instead of meshes (faster, but can't set line width!)
   private readonly TRACKS_USE_GL_LINES: boolean = false;
+  private readonly USE_LIVE_SIDE_VIEWS: boolean = true;
+  private readonly SIDE_VIEW_PIXEL_RATIO_FACTOR: number = 0.65;
 
   // Use points instead of spheres (faster)
   private readonly CLUSTERS_USE_POINTS: boolean = true;
@@ -27,6 +45,10 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private readonly CLUSTER_TEXTURE: string = 'assets/models/cluster.png';
 
   private readonly CLICK_HIGHLIGHT_DURATION = 200;
+  private readonly TRACK_DRAW_ANIMATION_MS = 4000;
+
+  /** GLB cloned for beam protons during the first-event intro. */
+  @Input() protonModelUrl = 'assets/models/proton.glb';
 
   // Constants
   @HostBinding("style.--primary-axis-ratio")
@@ -38,6 +60,32 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   static readonly nearClippingPlane: number = 0.01;
   static readonly farClippingPlane: number = 8000;
   static readonly objectScale: number = 1.0e-2;
+  static readonly detectorModelScale: number = 5.0e-3;
+
+  static detectorPartPresentation(assetPath: string): Pick<DetectorPartToggleModel, 'labelKey' | 'labelParams'> {
+    const baseName = assetPath.replace(/^.*[/\\]/, '');
+    const file = baseName.toLowerCase();
+    const keys: Record<string, string> = {
+      'g2_pipe_a.glb': 'EVENT_DISPLAY.DETECTOR_PIPE_A',
+      'g2_pipeb.glb': 'EVENT_DISPLAY.DETECTOR_PIPE_B',
+      'its.glb': 'EVENT_DISPLAY.DETECTOR_ITS',
+      'g3_tpc.glb': 'EVENT_DISPLAY.DETECTOR_TPC',
+      'g4_barrel.glb': 'EVENT_DISPLAY.DETECTOR_BARREL',
+      'trd.glb': 'EVENT_DISPLAY.DETECTOR_TRD',
+      'l3.glb': 'EVENT_DISPLAY.DETECTOR_L3',
+      'g6_emcal.glb': 'EVENT_DISPLAY.DETECTOR_EMCAL',
+      'g7_phos.glb': 'EVENT_DISPLAY.DETECTOR_PHOS',
+      'alice.gltf': 'EVENT_DISPLAY.DETECTOR_FULL_MODEL',
+      'alice_complete.glb': 'EVENT_DISPLAY.DETECTOR_FULL_MODEL'
+    };
+    if (keys[file]) {
+      return { labelKey: keys[file] };
+    }
+    return {
+      labelKey: 'EVENT_DISPLAY.DETECTOR_LAYER_FALLBACK',
+      labelParams: { name: baseName.replace(/\.(glb|gltf)$/i, '').replace(/_/g, ' ') }
+    };
+  }
 
   static readonly lineSegments: number = 50;
 
@@ -48,6 +96,47 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private static readonly MOUSE_DRAG_PAN_FACTOR = 0.0008;
   private static readonly FADE_OPACITY = 0.25;
   private static readonly DETECTOR_FADE_OPACITY = 0.08;
+  private static readonly DETECTOR_COMPONENT_OPACITY = 0.12;
+  private static readonly DETECTOR_PIPE_OPACITY = 0.22;
+
+  /**
+   * When set in sessionStorage, multipart detector skips drag-and-drop for this tab session.
+   * New browser tab = new session → student goes through assembly again. Reload in same tab keeps the flag.
+   */
+  static readonly DETECTOR_ASSEMBLY_DONE_STORAGE_KEY = 'alice_mc_visualAnalysis_detectorAssembledPaths_v1';
+
+  private static detectorAssemblyPathsSignature(paths: string[]): string {
+    return paths.join('\u0000');
+  }
+
+  /** Used by VA page to gate the assembly coach wizard. */
+  static isMultipartDetectorStoredComplete(paths: string[]): boolean {
+    if (!paths?.length || paths.length < 2) return true;
+    try {
+      const saved = typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem(EventDisplayComponent.DETECTOR_ASSEMBLY_DONE_STORAGE_KEY)
+        : null;
+      return saved !== null && saved === EventDisplayComponent.detectorAssemblyPathsSignature(paths);
+    } catch {
+      return false;
+    }
+  }
+
+  private isStoredDetectorAssemblyComplete(paths: string[]): boolean {
+    return EventDisplayComponent.isMultipartDetectorStoredComplete(paths);
+  }
+
+  private persistDetectorAssemblyCompleted(paths: string[]): void {
+    try {
+      sessionStorage.setItem(
+        EventDisplayComponent.DETECTOR_ASSEMBLY_DONE_STORAGE_KEY,
+        EventDisplayComponent.detectorAssemblyPathsSignature(paths)
+      );
+    } catch {
+      /* private browsing / quota */
+    }
+  }
+
   private static readonly LAMBDA_MASS_MIN = 1.07;
   private static readonly LAMBDA_MASS_MAX = 1.16;
   private static readonly XI_MASS_MIN = 1.25;
@@ -143,6 +232,14 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   loading: boolean = false;
   sidebarOpened: boolean = true;
+  detectorLayersPanelOpened: boolean = true;
+  detectorPartsForUi: DetectorPartToggleModel[] = [];
+  detectorPaletteItems: DetectorPaletteItem[] = [];
+  /** Multiple GLBs: user drags pieces from the palette before the normal options sidebar is shown. */
+  detectorMultipartAssemblyMode = false;
+  private _detectorInteractiveAssemblyDone = true;
+  private detectorMultipartModelPathsOrder: string[] = [];
+  private detectorPreloadedRoots = new Map<string, THREE.Object3D>();
   cameraMode: 'centered' | 'free' = 'centered';
   private trackHoverObj: THREE.Object3D = null;
   private trackHoverOrigMaterial: THREE.Material = null;
@@ -187,6 +284,19 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   private cascadeConnectorLine: Line2 | null = null;
   private cascadeXiLine: Line2 | null = null;
   private lambdaFlightLine2Track: Line2 | null = null;
+  private trackDrawAnimations: THREE.Object3D[] = [];
+  private pendingTrackDrawLines: THREE.Object3D[] = [];
+  private trackDrawAnimationStartMs = 0;
+  /** When non-null, track draw progress is paused while two protons collide. */
+  private collisionIntroPhase: 'loading' | 'animating' | null = null;
+  private collisionProtonsGroup = new THREE.Group();
+  private protonPlusZMesh: THREE.Object3D | null = null;
+  private protonMinusZMesh: THREE.Object3D | null = null;
+  /** World-space approximate radius after scaling (bounding sphere). */
+  private protonRadiusWorld = 0.014;
+  private lastRenderWallMs = 0;
+  private protonHalfSeparationStart = 0.42;
+  private readonly protonApproachSpeed = 1.35e-4;
   private keysDown: { [key: string]: boolean } = {};
   private panVec = new THREE.Vector3();
   private panRight = new THREE.Vector3();
@@ -202,6 +312,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   // Detector
   private detector: THREE.Group = new THREE.Group();
   private detectorScene: THREE.Group | null = null;
+  private detectorPartRootByPath = new Map<string, THREE.Object3D>();
 
   private detectorSideViews: THREE.Group = new THREE.Group();
   private detectorSideViewsRphi: THREE.Group = new THREE.Group();
@@ -227,21 +338,243 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   }
 
   @Input()
-  get detectorModel(): string { return this._detectorModel; }
-  set detectorModel(detectorModel: string) {
+  get detectorModel(): string | string[] { return this._detectorModel; }
+  set detectorModel(detectorModel: string | string[]) {
     this._detectorModel = detectorModel;
     this.detector.clear();
     this.detectorScene = null;
-    this.loading = true;
-    this.loaderGLTF.load(this._detectorModel, (gltf: GLTF) => {
-      this.detectorScene = gltf.scene;
-      this.detector.add(this.detectorScene);
-      this.detectorScene.updateMatrixWorld(true);
-      this.setDetectorMaterialsWithPolygonOffset(this.detectorScene, 0.22);
+    this.detectorPartRootByPath.clear();
+    this.detectorPartsForUi = [];
+    this.detectorPreloadedRoots.clear();
+    this.detectorPaletteItems = [];
+    this.detectorMultipartModelPathsOrder = [];
+
+    const modelPaths = Array.isArray(detectorModel) ? detectorModel : [detectorModel];
+    const multiPart = modelPaths.length > 1;
+    const useInteractiveMultipartAssembly =
+      multiPart && !this.isStoredDetectorAssemblyComplete(modelPaths);
+    this.detectorMultipartAssemblyMode = useInteractiveMultipartAssembly;
+    this._detectorInteractiveAssemblyDone = !useInteractiveMultipartAssembly;
+
+    if (modelPaths.length === 0) {
       this.loading = false;
-    });
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.loading = true;
+    let remaining = modelPaths.length;
+    const reloadToken = Date.now().toString();
+    const loadedByPath = new Map<string, THREE.Object3D>();
+
+    const finishImmediateAttached = () => {
+      this.detectorPartRootByPath.clear();
+      const nextUi: DetectorPartToggleModel[] = [];
+      for (const modelPath of modelPaths) {
+        const scene = loadedByPath.get(modelPath);
+        if (!scene) continue;
+        const pres = EventDisplayComponent.detectorPartPresentation(modelPath);
+        scene.visible = true;
+        this.detector.add(scene);
+        this.detectorPartRootByPath.set(modelPath, scene);
+        nextUi.push({
+          assetPath: modelPath,
+          labelKey: pres.labelKey,
+          labelParams: pres.labelParams,
+          visible: true
+        });
+      }
+      this.detectorPartsForUi = nextUi;
+      this.detectorScene = this.detector;
+      this.loading = false;
+      if (nextUi.length > 0) {
+        this.detectorLayersPanelOpened = true;
+      }
+      this.cdr.markForCheck();
+      this.resize(true);
+    };
+
+    const finishMultipartPreload = () => {
+      this.detectorMultipartModelPathsOrder = [...modelPaths];
+      this.detectorPreloadedRoots.clear();
+      this.detectorPaletteItems = [];
+      for (const modelPath of modelPaths) {
+        const scene = loadedByPath.get(modelPath);
+        if (!scene) continue;
+        scene.visible = false;
+        this.detectorPreloadedRoots.set(modelPath, scene);
+        const pres = EventDisplayComponent.detectorPartPresentation(modelPath);
+        this.detectorPaletteItems.push({
+          assetPath: modelPath,
+          labelKey: pres.labelKey,
+          labelParams: pres.labelParams,
+          placed: false
+        });
+      }
+      this.detectorLayersPanelOpened = false;
+      this.sidebarOpened = true;
+      this.detectorPartsForUi = [];
+      this.detectorScene = null;
+      this.loading = false;
+      this.cdr.markForCheck();
+      this.resize(true);
+    };
+
+    const finishOne = () => {
+      remaining -= 1;
+      if (remaining === 0) {
+        if (useInteractiveMultipartAssembly) {
+          finishMultipartPreload();
+        } else {
+          finishImmediateAttached();
+        }
+      }
+    };
+
+    for (const modelPath of modelPaths) {
+      const detectorOpacity = modelPath.includes('g2_pipe')
+        ? EventDisplayComponent.DETECTOR_PIPE_OPACITY
+        : EventDisplayComponent.DETECTOR_COMPONENT_OPACITY;
+      const modelPathWithReload = modelPath.includes('?')
+        ? `${modelPath}&reload=${reloadToken}`
+        : `${modelPath}?reload=${reloadToken}`;
+      this.loaderGLTF.load(
+        modelPathWithReload,
+        (gltf: GLTF) => {
+          const scene = gltf.scene;
+          scene.scale.setScalar(EventDisplayComponent.detectorModelScale);
+          scene.updateMatrixWorld(true);
+          scene.userData = { ...(scene.userData || {}), detectorAssetPath: modelPath };
+          this.setDetectorMaterialsWithPolygonOffset(scene, detectorOpacity);
+          loadedByPath.set(modelPath, scene);
+          finishOne();
+        },
+        undefined,
+        () => finishOne()
+      );
+    }
   }
-  private _detectorModel: string;
+  private _detectorModel: string | string[];
+
+  get effectiveSideViewsShown(): boolean {
+    return this._detectorInteractiveAssemblyDone && !!this._sideViewsShown;
+  }
+
+  get detectorInteractiveAssemblyDone(): boolean {
+    return this._detectorInteractiveAssemblyDone;
+  }
+
+  onDetectorPaletteDragEnded(event: CdkDragEnd, item: DetectorPaletteItem): void {
+    if (item.placed) {
+      event.source.reset();
+      return;
+    }
+
+    let clientX = 0;
+    let clientY = 0;
+    const ie = event as CdkDragEnd & {
+      pointerPosition?: { x: number; y: number };
+      event?: MouseEvent | TouchEvent;
+    };
+    const ev = ie.event;
+    if (ev && 'changedTouches' in ev && ev.changedTouches?.length) {
+      clientX = ev.changedTouches[0].clientX;
+      clientY = ev.changedTouches[0].clientY;
+    } else if (ev && 'clientX' in ev) {
+      clientX = (ev as MouseEvent).clientX;
+      clientY = (ev as MouseEvent).clientY;
+    } else if (ie.pointerPosition) {
+      clientX = ie.pointerPosition.x;
+      clientY = ie.pointerPosition.y;
+    }
+
+    if (!clientX && !clientY) {
+      event.source.reset();
+      return;
+    }
+
+    const dropOk = this.tryPlaceDetectorPieceFromPalette(item, clientX, clientY);
+    if (!dropOk || !item.placed) {
+      event.source.reset();
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Returns true when the piece snaps into the detector (valid drop zone). */
+  private tryPlaceDetectorPieceFromPalette(item: DetectorPaletteItem, clientX: number, clientY: number): boolean {
+    const renderArea =
+      typeof this.canvasRef?.nativeElement?.parentElement !== 'undefined'
+        ? (this.canvasRef.nativeElement.parentElement as HTMLElement | null)
+        : null;
+    if (!renderArea) return false;
+    const rect = renderArea.getBoundingClientRect();
+    const inside =
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom;
+
+    if (!inside) return false;
+
+    const root = this.detectorPreloadedRoots.get(item.assetPath);
+    if (!root || item.placed) return false;
+
+    root.visible = true;
+    this.detector.add(root);
+    this.detectorPartRootByPath.set(item.assetPath, root);
+    item.placed = true;
+
+    this.detectorAssemblyPiecePlaced.emit(item.assetPath);
+
+    this.detectorPartsForUi = this.rebuildDetectorPartTogglesSorted();
+
+    const allPlaced = this.detectorPaletteItems.every((row) => row.placed);
+
+    if (allPlaced) {
+      this.completeMultipartDetectorAssembly();
+    }
+    return true;
+  }
+
+  private rebuildDetectorPartTogglesSorted(): DetectorPartToggleModel[] {
+    if (this.detectorMultipartModelPathsOrder.length === 0) return [];
+    const next: DetectorPartToggleModel[] = [];
+    const presFor = (p: string) => EventDisplayComponent.detectorPartPresentation(p);
+    for (const p of this.detectorMultipartModelPathsOrder) {
+      if (!this.detectorPartRootByPath.has(p)) continue;
+      const pres = presFor(p);
+      const root = this.detectorPartRootByPath.get(p);
+      const existing = this.detectorPartsForUi.find((t) => t.assetPath === p);
+      next.push({
+        assetPath: p,
+        labelKey: pres.labelKey,
+        labelParams: pres.labelParams,
+        visible: existing ? existing.visible : root ? root.visible : true
+      });
+    }
+    return next;
+  }
+
+  private completeMultipartDetectorAssembly(): void {
+    this.persistDetectorAssemblyCompleted(this.detectorMultipartModelPathsOrder);
+    this._detectorInteractiveAssemblyDone = true;
+    this.detectorScene = this.detector;
+    this.detectorPartsForUi = this.rebuildDetectorPartTogglesSorted();
+    if (this.detectorPartsForUi.length > 0) {
+      this.detectorLayersPanelOpened = true;
+    }
+    this.sidebarOpened = false;
+    this.cdr.markForCheck();
+    this.resize(true);
+  }
+
+  setDetectorPartVisibility(part: DetectorPartToggleModel, visible: boolean): void {
+    part.visible = visible;
+    const root = this.detectorPartRootByPath.get(part.assetPath);
+    if (root) {
+      root.visible = visible;
+    }
+  }
 
   private setDetectorMaterialsWithPolygonOffset(object: THREE.Object3D, opacity: number) {
     const tempVec = new THREE.Vector3();
@@ -263,6 +596,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         if (!mat) return;
         (mat as any).transparent = true;
         (mat as any).opacity = opacity;
+        (mat as any).userData = { ...((mat as any).userData || {}), baseOpacity: opacity };
         (mat as any).side = THREE.DoubleSide;
         (mat as any).depthWrite = false;
         (mat as any).alphaTest = 0.05;
@@ -278,6 +612,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   set detectorRphi(detectorRphi: string) {
     this._detectorRphi = detectorRphi;
     this.detectorSideViewsRphi.clear();
+    if (this.USE_LIVE_SIDE_VIEWS) return;
     const finalize_rphi = (group: THREE.Group) => {
       group.scale.set(0.18, 0.18, 0.18);
       group.renderOrder = -1;
@@ -296,6 +631,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   set detectorRhoz(detectorRhoz: string) {
     this._detectorRhoz = detectorRhoz;
     this.detectorSideViewsRhoz.clear();
+    if (this.USE_LIVE_SIDE_VIEWS) return;
     const finalize_rhoz = (group: THREE.Group) => {
       group.rotateY(0.5 * Math.PI);
       group.scale.set(0.15, 0.15, 0.15);
@@ -336,7 +672,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this._sideViewsShown = sideViewsShown;
     this.resize(true);
   }
-  private _sideViewsShown: boolean;
+  private _sideViewsShown: boolean = false;
 
   @Input()
   get axesShown(): boolean { return this.axes.visible; }
@@ -348,35 +684,59 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   get detectorShown(): boolean { return this.detector.visible; }
   set detectorShown(detectorShown: boolean) {
     this.detector.visible = detectorShown;
-    this.detectorSideViews.visible = detectorShown;
+    this.detectorSideViews.visible = !this.USE_LIVE_SIDE_VIEWS && detectorShown;
   }
 
+  private desiredTracksShown = true;
+  private desiredClustersShown = true;
+  private desiredDecaysShown = true;
+  private _showProtonCollisionIntro = false;
+
   @Input()
-  get tracksShown(): boolean { return this.tracks.visible; }
+  get tracksShown(): boolean { return this.desiredTracksShown; }
   set tracksShown(tracksShown: boolean) {
-    this.tracks.visible = tracksShown;
+    this.desiredTracksShown = tracksShown;
+    this.applyDesiredPhysicsVisibility();
   }
 
   @Input()
   hasClusters: boolean;
 
   @Input()
-  get clustersShown(): boolean { return this.clusters.visible; }
+  get clustersShown(): boolean { return this.desiredClustersShown; }
   set clustersShown(clustersShown: boolean) {
-    this.clusters.visible = clustersShown;
+    this.desiredClustersShown = clustersShown;
+    this.applyDesiredPhysicsVisibility();
   }
 
   @Input()
-  get decaysShown(): boolean { return this.decays.visible; }
+  get decaysShown(): boolean { return this.desiredDecaysShown; }
   set decaysShown(decaysShown: boolean) {
-    this.decays.visible = decaysShown;
-    this.cascadeVertexMarkers.visible = decaysShown;
+    this.desiredDecaysShown = decaysShown;
+    this.applyDesiredPhysicsVisibility();
+  }
+
+  @Input()
+  get showProtonCollisionIntro(): boolean { return this._showProtonCollisionIntro; }
+  set showProtonCollisionIntro(show: boolean) {
+    const v = !!show;
+    if (v === this._showProtonCollisionIntro) return;
+    this._showProtonCollisionIntro = v;
+    if (!v) {
+      this.cancelProtonCollisionIntroAndRevealTracks();
+    }
   }
 
   private createLine(track: number[][], material: THREE.Material): THREE.Object3D {
     let mesh: THREE.Object3D;
+    const first = track[0];
+    const last = track[track.length - 1];
+    const firstR2 = first[0] * first[0] + first[1] * first[1] + first[2] * first[2];
+    const lastR2 = last[0] * last[0] + last[1] * last[1] + last[2] * last[2];
+    // Draw from the collision side outward: whichever endpoint is closer to (0,0,0).
+    const orderedTrack = firstR2 <= lastR2 ? track : [...track].reverse();
     const points: Array<THREE.Vector3> = [];
-    for (let point of track) {
+    for (let point of orderedTrack) {
       points.push(new THREE.Vector3(
         EventDisplayComponent.objectScale * point[0],
         EventDisplayComponent.objectScale * point[1],
@@ -387,6 +747,9 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const vertices = spline.getPoints(EventDisplayComponent.lineSegments);
     const geometry = new THREE.BufferGeometry().setFromPoints(vertices);
     mesh = new THREE.Line(geometry, material);
+    const lineUserData = { ...((mesh as any).userData || {}), drawMode: 'line', drawTotal: vertices.length };
+    (mesh as any).userData = lineUserData;
+    geometry.setDrawRange(0, 2);
     if (this.TRACKS_USE_GL_LINES) {
       return mesh;
     }
@@ -398,7 +761,191 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     lineGeometry.setPositions(points2);
     mesh = new Line2(lineGeometry, material as LineMaterial);
     (mesh as Line2).computeLineDistances();
+    const totalSegments = Math.max(1, vertices.length - 1);
+    (mesh as any).userData = { ...((mesh as any).userData || {}), drawMode: 'line2', drawTotal: totalSegments };
+    lineGeometry.setDrawRange(0, 1);
     return mesh;
+  }
+
+  private queueTrackDrawAnimation(line: THREE.Object3D): void {
+    const drawTotal = (line as any).userData?.drawTotal;
+    if (drawTotal == null) return;
+    this.trackDrawAnimations.push(line);
+  }
+
+  private updateTrackDrawAnimations(): void {
+    if (this.isCollisionIntroBlockingPhysics()) return;
+    if (this.trackDrawAnimations.length === 0) return;
+    const now = performance.now();
+    const progress = Math.min(1, (now - this.trackDrawAnimationStartMs) / this.TRACK_DRAW_ANIMATION_MS);
+
+    for (const line of this.trackDrawAnimations) {
+      const userData = (line as any).userData || {};
+      const drawMode = userData.drawMode;
+      const drawTotal = userData.drawTotal as number;
+      const geometry = (line as any).geometry as THREE.BufferGeometry;
+      if (!geometry || !drawTotal) continue;
+      if (drawMode === 'line2') {
+        geometry.setDrawRange(0, Math.max(1, Math.floor(drawTotal * progress)));
+      } else {
+        geometry.setDrawRange(0, Math.max(2, Math.floor(drawTotal * progress)));
+      }
+    }
+
+    if (progress >= 1) {
+      this.trackDrawAnimations = [];
+    }
+  }
+
+  private isCollisionIntroBlockingPhysics(): boolean {
+    return this.collisionIntroPhase === 'loading' || this.collisionIntroPhase === 'animating';
+  }
+
+  /** Applies parent's track/decay/cluster toggles unless the proton intro hides physics layers. */
+  private applyDesiredPhysicsVisibility(): void {
+    if (this.isCollisionIntroBlockingPhysics()) {
+      this.tracks.visible = false;
+      this.decays.visible = false;
+      this.clusters.visible = false;
+      this.cascadeVertexMarkers.visible = false;
+      return;
+    }
+    this.tracks.visible = this.desiredTracksShown;
+    this.decays.visible = this.desiredDecaysShown;
+    this.clusters.visible = this.desiredClustersShown;
+    this.cascadeVertexMarkers.visible = this.desiredDecaysShown;
+  }
+
+  private clearCollisionProtonModels(): void {
+    while (this.collisionProtonsGroup.children.length > 0) {
+      const c = this.collisionProtonsGroup.children[0];
+      this.collisionProtonsGroup.remove(c);
+      c.traverse((o: THREE.Object3D) => {
+        if ((o as THREE.Mesh).isMesh) {
+          const m = o as THREE.Mesh;
+          m.geometry?.dispose?.();
+          const mat = m.material as THREE.Material | THREE.Material[];
+          if (Array.isArray(mat)) mat.forEach((x) => x.dispose?.());
+          else mat?.dispose?.();
+        }
+      });
+    }
+    this.protonPlusZMesh = null;
+    this.protonMinusZMesh = null;
+    this.collisionProtonsGroup.visible = false;
+  }
+
+  private beginProtonCollisionIntroLoad(): void {
+    if (!this._event || !this.showProtonCollisionIntro) return;
+    this.clearCollisionProtonModels();
+    this.collisionIntroPhase = 'loading';
+    this.loaderGLTF.load(
+      this.protonModelUrl,
+      (gltf: GLTF) => {
+      if (
+        !this._event ||
+        !this.showProtonCollisionIntro ||
+        this.collisionIntroPhase !== 'loading'
+      ) {
+        return;
+      }
+      const tpl = gltf.scene;
+      const plus = tpl.clone(true);
+      const minus = tpl.clone(true);
+      const bbox = new THREE.Box3().setFromObject(tpl);
+      const size = bbox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
+      const targetDiameter =
+        EventDisplayComponent.objectScale * 10;
+      const uniform = targetDiameter / maxDim;
+      plus.scale.setScalar(uniform);
+      minus.scale.setScalar(uniform);
+
+      plus.updateMatrixWorld(true);
+      minus.updateMatrixWorld(true);
+      const sph = new THREE.Sphere();
+      new THREE.Box3().setFromObject(plus).getBoundingSphere(sph);
+      this.protonRadiusWorld = sph.radius;
+
+      const halfSep = Math.max(this.protonHalfSeparationStart, this.protonRadiusWorld * 2.6);
+      minus.position.set(0, 0, -halfSep);
+      plus.position.set(0, 0, halfSep);
+      minus.traverse(this.setIntroProtonPresentationalState);
+      plus.traverse(this.setIntroProtonPresentationalState);
+      this.collisionProtonsGroup.add(minus);
+      this.collisionProtonsGroup.add(plus);
+      this.protonMinusZMesh = minus;
+      this.protonPlusZMesh = plus;
+      this.collisionProtonsGroup.visible = true;
+      this.collisionIntroPhase = 'animating';
+    },
+      undefined,
+      () => {
+        this.collisionIntroPhase = null;
+        this.clearCollisionProtonModels();
+        if (this.pendingTrackDrawLines.length) {
+          const pending = [...this.pendingTrackDrawLines];
+          this.pendingTrackDrawLines = [];
+          for (const line of pending) {
+            this.queueTrackDrawAnimation(line);
+          }
+          this.trackDrawAnimationStartMs = performance.now();
+        }
+        this.applyDesiredPhysicsVisibility();
+      }
+    );
+  }
+
+  private setIntroProtonPresentationalState = (o: THREE.Object3D): void => {
+    if ((o as THREE.Mesh).isMesh) {
+      const m = (o as THREE.Mesh).material;
+      const mats: THREE.Material[] = Array.isArray(m) ? m : m ? [m] : [];
+      for (const mat of mats) {
+        mat.depthWrite = true;
+        mat.needsUpdate = true;
+      }
+      o.renderOrder = 8000;
+    }
+  };
+
+  private completeCollisionIntro(): void {
+    if (this.collisionIntroPhase === null || this.collisionIntroPhase === 'loading') return;
+    this.collisionIntroPhase = null;
+    this.clearCollisionProtonModels();
+    for (const line of this.pendingTrackDrawLines) {
+      this.queueTrackDrawAnimation(line);
+    }
+    this.pendingTrackDrawLines = [];
+    this.trackDrawAnimationStartMs = performance.now();
+    this.applyDesiredPhysicsVisibility();
+  }
+
+  private cancelProtonCollisionIntroAndRevealTracks(): void {
+    const blocking = this.isCollisionIntroBlockingPhysics();
+    if (!blocking && this.pendingTrackDrawLines.length === 0) return;
+    const pending = [...this.pendingTrackDrawLines];
+    this.pendingTrackDrawLines = [];
+    this.collisionIntroPhase = null;
+    this.clearCollisionProtonModels();
+    for (const line of pending) {
+      this.queueTrackDrawAnimation(line);
+    }
+    if (pending.length) {
+      this.trackDrawAnimationStartMs = performance.now();
+    }
+    this.applyDesiredPhysicsVisibility();
+  }
+
+  private updateProtonCollisionIntro(deltaWallMs: number): void {
+    if (this.collisionIntroPhase !== 'animating' || !this.protonPlusZMesh || !this.protonMinusZMesh) return;
+    const dt = Math.min(Math.max(deltaWallMs, 0), 72);
+    const step = this.protonApproachSpeed * dt;
+    this.protonPlusZMesh.position.z -= step;
+    this.protonMinusZMesh.position.z += step;
+    const sep = this.protonPlusZMesh.position.z - this.protonMinusZMesh.position.z;
+    if (sep <= 2 * this.protonRadiusWorld * 1.02) {
+      this.completeCollisionIntro();
+    }
   }
 
   private invariantMass(tracks: Track[]): number {
@@ -508,16 +1055,37 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.cascadeMarkerEnhanced = false;
     this.cascadeMarkerOrigColors = [];
     this.closeVertexPanel();
+    this.trackDrawAnimations = [];
+    this.pendingTrackDrawLines = [];
+    this.collisionIntroPhase = null;
+    this.lastRenderWallMs = 0;
+    const deferTrackDrawForIntro =
+      this._event !== null && this.showProtonCollisionIntro;
+    if (deferTrackDrawForIntro) {
+      this.clearCollisionProtonModels();
+      this.collisionIntroPhase = 'loading';
+    } else {
+      this.collisionIntroPhase = null;
+      this.clearCollisionProtonModels();
+    }
+    this.trackDrawAnimationStartMs = deferTrackDrawForIntro
+      ? 0
+      : performance.now();
     this.loading = true;
     if (this._event !== null) {
       const cascadeVertices = this.getCascadeVertices(this._event);
       for (const v of cascadeVertices) {
         this.cascadeVertexMarkers.add(this.createVertexMarker(v.pos, v.label));
       }
-      this.cascadeVertexMarkers.visible = this.decays.visible;
+      this.cascadeVertexMarkers.visible = this.desiredDecaysShown;
       for (let track of this._event.tracks) {
         const line = this.createLine(track.trajectory, this.trackMaterial);
         this.tracks.add(line);
+        if (deferTrackDrawForIntro) {
+          this.pendingTrackDrawLines.push(line);
+        } else {
+          this.queueTrackDrawAnimation(line);
+        }
       }
       for (let particleList of this._event.decays) {
         const decayObject = new THREE.Object3D();
@@ -533,8 +1101,13 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
             material = this.trackMaterial;
           }
           const line = this.createLine(track.trajectory, material);
-          (line as any).userData = { ...track, trackLabel: this.getTrackLabel(track) };
+          (line as any).userData = { ...(line as any).userData, ...track, trackLabel: this.getTrackLabel(track) };
           decayObject.add(line);
+          if (deferTrackDrawForIntro) {
+            this.pendingTrackDrawLines.push(line);
+          } else {
+            this.queueTrackDrawAnimation(line);
+          }
         }
         this.decays.add(decayObject);
         break;
@@ -564,6 +1137,10 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         }
       }
     }
+    this.applyDesiredPhysicsVisibility();
+    if (deferTrackDrawForIntro) {
+      this.beginProtonCollisionIntroLoad();
+    }
     this.loading = false;
   }
   private _event: Event;
@@ -582,6 +1159,14 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
 
   @Output()
   nextEvent: EventEmitter<any> = new EventEmitter();
+
+  /** Emits asset path once a multipart palette piece snaps onto the detector (during interactive assembly only). */
+  @Output()
+  detectorAssemblyPiecePlaced: EventEmitter<string> = new EventEmitter();
+
+  /** Highlights the palette card for this asset path while building (e.g. guided coach hint). */
+  @Input()
+  assemblyCoachHighlightAssetPath: string | null = null;
 
   private rendernig: Observable<number> = scheduled([0], animationFrameScheduler).pipe(repeat());
   private renderingSubscription: Subscription = null;
@@ -609,9 +1194,17 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       const parent = this.canvas.parentElement;
       const displayWidth = parent.clientWidth;
       const displayHeight = parent.clientHeight;
+      const basePixelRatio = window.devicePixelRatio || 1;
+      const targetPixelRatio = this.effectiveSideViewsShown
+        ? Math.max(1, basePixelRatio * this.SIDE_VIEW_PIXEL_RATIO_FACTOR)
+        : basePixelRatio;
+      if (Math.abs(this.renderer.getPixelRatio() - targetPixelRatio) > 0.01) {
+        this.renderer.setPixelRatio(targetPixelRatio);
+        force = true;
+      }
       if (force || this.canvas.width !== displayWidth || this.canvas.height !== displayHeight) {
         this.renderer.setSize(displayWidth, displayHeight);
-        if (this.sideViewsShown) {
+        if (this.effectiveSideViewsShown) {
           if (this.landscape) {
             const width3D = Math.ceil(this.canvas.clientWidth * this.PRIMARY_AXIS_RATIO);
             const width = this.canvas.clientWidth - width3D;
@@ -647,6 +1240,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     window.removeEventListener('pointerup', this.onPointerUp);
     this.canvas?.removeEventListener('wheel', this.onWheel);
     this.clearGridBackground();
+    this.clearCollisionProtonModels();
   }
 
   private clearGridBackground(): void {
@@ -774,6 +1368,11 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
   }
 
   private render(): void {
+    const nowWall = performance.now();
+    const deltaWall = this.lastRenderWallMs ? nowWall - this.lastRenderWallMs : 0;
+    this.lastRenderWallMs = nowWall;
+    this.updateProtonCollisionIntro(deltaWall);
+    this.updateTrackDrawAnimations();
     this.resize(false);
     if (this.cameraMode === 'centered') {
       this.controls.target.set(0, 0, 0);
@@ -785,10 +1384,10 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.cameraRphi.zoom = this.cameraRhoz.zoom = 10 / zoomz;
     this.cameraRphi.updateProjectionMatrix();
     this.cameraRhoz.updateProjectionMatrix();
-    this.renderer.setScissorTest(this.sideViewsShown);
+    this.renderer.setScissorTest(this.effectiveSideViewsShown);
     const oldVP = new THREE.Vector4();
     this.renderer.getViewport(oldVP);
-    if (this.sideViewsShown) {
+    if (this.effectiveSideViewsShown) {
       if (this.landscape) {
         const width3D = Math.ceil(oldVP.z * this.PRIMARY_AXIS_RATIO);
         const width = oldVP.z - width3D;
@@ -805,7 +1404,14 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         this.camRhozVP.set(oldVP.x + width, oldVP.y, width, height);
       }
       const isDetectorVisible = this.detector.visible;
-      this.detector.visible = false;
+      const isDetectorSideviewVisible = this.detectorSideViews.visible;
+      if (this.USE_LIVE_SIDE_VIEWS) {
+        this.detector.visible = isDetectorVisible;
+        this.detectorSideViews.visible = false;
+      } else {
+        this.detector.visible = false;
+        this.detectorSideViews.visible = isDetectorSideviewVisible;
+      }
       this.renderer.setViewport(this.camRphiVP);
       this.renderer.setScissor(this.camRphiVP);
       const materials = [this.trackMaterial, this.postiveTrackMaterial, this.negativeTrackMaterial, this.bachelorTrackMaterial, this.highlightTrackMaterial, this.cascadeHoverTrackMaterial, this.cascadeProtonMaterial];
@@ -819,6 +1425,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       materials.forEach((m: any) => m.resolution?.set(this.camRhozVP.z, this.camRhozVP.w));
       this.renderer.render(this.scene, this.cameraRhoz);
       this.detector.visible = isDetectorVisible;
+      this.detectorSideViews.visible = isDetectorSideviewVisible;
     } else {
       this.cam3DVP.set(oldVP.x, oldVP.y, oldVP.z, oldVP.w);
     }
@@ -1110,7 +1717,11 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
         if ((o as any).isMesh) {
           const raw = (o as THREE.Mesh).material;
           const mats: THREE.Material[] = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-          for (const m of mats) { if (m) (m as any).opacity = 0.22; }
+          for (const m of mats) {
+            if (!m) continue;
+            const baseOpacity = (m as any).userData?.baseOpacity ?? EventDisplayComponent.DETECTOR_COMPONENT_OPACITY;
+            (m as any).opacity = baseOpacity;
+          }
         }
       });
     }
@@ -1154,7 +1765,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const origin = new THREE.Vector3(0, 0, 0);
     const v1 = new THREE.Vector3();
     this.cascadeVertexMarkers.children[0].getWorldPosition(v1);
-    const viewports = this.sideViewsShown
+    const viewports = this.effectiveSideViewsShown
       ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
       : [{ view: this.cam3DVP, cam: this.camera3D }];
     for (const { view, cam } of viewports) {
@@ -1188,7 +1799,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const origin = new THREE.Vector3(0, 0, 0);
     const v1 = new THREE.Vector3();
     this.cascadeVertexMarkers.children[1].getWorldPosition(v1);
-    const viewports = this.sideViewsShown
+    const viewports = this.effectiveSideViewsShown
       ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
       : [{ view: this.cam3DVP, cam: this.camera3D }];
     for (const { view, cam } of viewports) {
@@ -1223,7 +1834,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const v1 = new THREE.Vector3();
     this.cascadeVertexMarkers.children[0].getWorldPosition(v0);
     this.cascadeVertexMarkers.children[1].getWorldPosition(v1);
-    const viewports = this.sideViewsShown
+    const viewports = this.effectiveSideViewsShown
       ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
       : [{ view: this.cam3DVP, cam: this.camera3D }];
     for (const { view, cam } of viewports) {
@@ -1255,7 +1866,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     const cursorY = rect.height - (event.clientY - rect.top);
     const maxDist = EventDisplayComponent.MARKER_PROXIMITY_PX * EventDisplayComponent.MARKER_PROXIMITY_PX;
     let closest: { label: string; dist: number } | null = null;
-    const viewports = this.sideViewsShown
+    const viewports = this.effectiveSideViewsShown
       ? [{ view: this.cam3DVP, cam: this.camera3D }, { view: this.camRphiVP, cam: this.cameraRphi }, { view: this.camRhozVP, cam: this.cameraRhoz }]
       : [{ view: this.cam3DVP, cam: this.camera3D }];
     const v = new THREE.Vector3();
@@ -1299,7 +1910,7 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
       -(event.clientY - windowOffset.top) + this.renderer.domElement.clientHeight
     );
     let viewports: { view: THREE.Vector4; cam: THREE.Camera }[];
-    if (this.sideViewsShown) {
+    if (this.effectiveSideViewsShown) {
       viewports = [
         { view: this.cam3DVP, cam: this.camera3D },
         { view: this.camRphiVP, cam: this.cameraRphi },
@@ -1401,6 +2012,8 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     this.scene.add(this.cascadeVertexMarkers);
     this.scene.add(this.clusters);
     this.scene.add(this.decays);
+    this.collisionProtonsGroup.visible = false;
+    this.scene.add(this.collisionProtonsGroup);
     this.resize(true);
   }
 

@@ -1,10 +1,10 @@
-import { Component, OnInit, Type } from '@angular/core';
+import { AfterViewInit, ApplicationRef, Component, OnDestroy, OnInit, Type } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { InstructionsProvider } from '../shared/interfaces';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { forkJoin, Observable } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
+import { map, shareReplay, filter, take } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { SelectDatasetDialogComponent } from '../select-dataset-dialog/select-dataset-dialog.component';
 import { Event, Track, TrackType } from '../shared/models';
@@ -13,7 +13,7 @@ import { StrangenessDataService } from '../services/strangeness-data.service';
 import { ParticleType, VisualAnalysisResultsEntry } from '../shared/services/api.service';
 import { InstructionsComponent } from './instructions/instructions.component';
 import { TranslateService } from '@ngx-translate/core';
-import { SandboxModeDialogComponent, SandboxModeDialogData } from './sandbox-mode-dialog/sandbox-mode-dialog.component';
+import { DetectorPartToggleModel, EventDisplayComponent } from '../shared/components/event-display/event-display.component';
 
 export interface SubmitHistogramEntry {
   type: ParticleType,
@@ -26,11 +26,33 @@ export interface SubmitHistogramEntry {
     styleUrls: ['./strangeness-visual-analysis.component.scss'],
     standalone: false
 })
-export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsProvider {
+export class StrangenessVisualAnalysisComponent implements OnInit, AfterViewInit, OnDestroy, InstructionsProvider {
 
   instructionsComponent: Type<any> = InstructionsComponent;
 
-  readonly ALICE_DETECTOR_MODEL = "assets/models/alice.glb";
+  /** Guided coach (welcome + hint per detector piece); only when multipart assembly is still required this session. */
+  vaCoachOverlayVisible = false;
+  vaCoachWelcomePhase = true;
+  /** After the last hinted piece has been successfully placed — show acknowledgement before hiding the coach UI. */
+  vaCoachVictoryPhase = false;
+  vaCoachPieceHintIndex = 0;
+  private vaCoachScheduleSub: Subscription | null = null;
+  private vaCoachOpenScheduled = false;
+
+  readonly ALICE_DETECTOR_MODEL = [
+    // Beam pipe context
+    'assets/models/alice components/g2_pipe_a.glb',
+    'assets/models/alice components/g2_pipeb.glb',
+    // Core detector volumes
+    'assets/models/alice components/its.glb',
+    'assets/models/alice components/g3_tpc.glb',
+    'assets/models/alice components/g4_barrel.glb',
+    'assets/models/alice components/trd.glb',
+    'assets/models/alice components/L3.glb',
+    // Satellite detectors
+    'assets/models/alice components/g6_emcal.glb',
+    'assets/models/alice components/g7_phos.glb',
+  ];
   readonly ALICE_DETECTOR_RPHI = "assets/models/alice_rphi.svg";
   readonly ALICE_DETECTOR_RHOZ = "assets/models/alice_rhoz.svg";
 
@@ -54,16 +76,78 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
   constructor(
     private breakpointObserver: BreakpointObserver,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog,
     public dataService: StrangenessDataService,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private appRef: ApplicationRef
     ) { 
       this.isLandscape$ = this.breakpointObserver.observe('(orientation: landscape)')
     .pipe(
       map(result => result.matches),
       shareReplay()
     );
+  }
+
+  ngAfterViewInit(): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
     }
+
+    /** Overlay after stability + defer; extra timeout catches rare cases where stable stays false briefly. */
+    this.vaCoachScheduleSub = this.appRef.isStable
+      .pipe(filter((stable) => stable), take(1))
+      .subscribe(() => {
+        queueMicrotask(() => window.setTimeout(() => this.tryScheduleVaCoach(), 380));
+      });
+    window.setTimeout(() => this.tryScheduleVaCoach(), 1650);
+  }
+
+  ngOnDestroy(): void {
+    this.vaCoachScheduleSub?.unsubscribe();
+    this.vaCoachScheduleSub = null;
+  }
+
+  /** Null when overlay hidden or phases where highlight is meaningless. */
+  get assemblyCoachHighlightPath(): string | null {
+    if (!this.vaCoachOverlayVisible || this.vaCoachWelcomePhase || this.vaCoachVictoryPhase) return null;
+    return this.ALICE_DETECTOR_MODEL[this.vaCoachPieceHintIndex];
+  }
+
+  /** Name of the detector piece currently requested by the guided sequence. */
+  get vaCoachCurrentPiecePresentation(): Pick<DetectorPartToggleModel, 'labelKey' | 'labelParams'> {
+    const path = this.ALICE_DETECTOR_MODEL[this.vaCoachPieceHintIndex];
+    return EventDisplayComponent.detectorPartPresentation(path);
+  }
+
+  onVaCoachWelcomeContinue(): void {
+    this.vaCoachWelcomePhase = false;
+  }
+
+  onVaCoachVictoryDismiss(): void {
+    this.vaCoachOverlayVisible = false;
+    this.vaCoachVictoryPhase = false;
+  }
+
+  onDetectorAssemblyPiecePlaced(assetPath: string): void {
+    if (!this.vaCoachOverlayVisible || this.vaCoachVictoryPhase || this.vaCoachWelcomePhase) return;
+    const expected = this.ALICE_DETECTOR_MODEL[this.vaCoachPieceHintIndex];
+    if (assetPath !== expected) return;
+    const next = this.vaCoachPieceHintIndex + 1;
+    if (next >= this.ALICE_DETECTOR_MODEL.length) {
+      this.vaCoachVictoryPhase = true;
+      return;
+    }
+    this.vaCoachPieceHintIndex = next;
+  }
+
+  private tryScheduleVaCoach(): void {
+    if (this.vaCoachOpenScheduled) return;
+    if (EventDisplayComponent.isMultipartDetectorStoredComplete(this.ALICE_DETECTOR_MODEL)) return;
+    this.vaCoachOpenScheduled = true;
+    this.vaCoachOverlayVisible = true;
+    this.vaCoachWelcomePhase = true;
+    this.vaCoachVictoryPhase = false;
+    this.vaCoachPieceHintIndex = 0;
+  }
 
   ngOnInit(): void {
     this.maxEvents = this.dataService.EVENTS_IN_DEMO_DATASET;
@@ -75,29 +159,6 @@ export class StrangenessVisualAnalysisComponent implements OnInit, InstructionsP
       (error: HttpErrorResponse) => {
       }
     );
-  }
-
-  onSandboxModeClicked(): void {
-    const config = new MatDialogConfig();
-    config.disableClose = false;
-    config.autoFocus = false;
-    config.panelClass = 'sandbox-mode-panel';
-    config.width = '100vw';
-    config.height = '100vh';
-    config.maxWidth = '100vw';
-    config.maxHeight = '100vh';
-    config.position = { top: '0', left: '0' };
-
-    const data: SandboxModeDialogData = {
-      event: this.event,
-      detectorModel: this.ALICE_DETECTOR_MODEL,
-      detectorRphi: this.ALICE_DETECTOR_RPHI,
-      detectorRhoz: this.ALICE_DETECTOR_RHOZ,
-      onTrackClicked: (track: Track) => this.onTrackClicked(track)
-    };
-
-    config.data = data;
-    this.dialog.open(SandboxModeDialogComponent, config);
   }
 
   private loadEvent() {

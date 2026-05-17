@@ -6,6 +6,35 @@
   padding: 10px;
 }
 
+/* Fixed overlay so it is not swallowed by THREE canvas/stacking; palette on the right stays usable. */
+.va-coach-layer {
+  pointer-events: none;
+  position: fixed;
+  z-index: 1400;
+  top: max(80px, env(safe-area-inset-top, 0px) + 64px);
+  left: max(16px, env(safe-area-inset-left, 0px));
+  max-width: min(520px, calc(100vw - 280px)); /* leave room for end drawer + palettes */
+}
+
+.va-coach-card {
+  pointer-events: auto;
+}
+
+.va-coach-text {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.va-coach-part-name strong {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 900px) {
+  .va-coach-layer {
+    max-width: calc(100vw - 40px);
+  }
+}
+
 .options {
   * {
     padding: 0 16px;
@@ -28,14 +57,4 @@ app-event-display {
   flex-direction: column;
   gap: 8px;
   align-items: flex-start;
-}
-
-.sandbox-button {
-  text-transform: none;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  border-radius: 999px;
-  padding: 0 14px;
-  min-height: 32px;
-  box-shadow: 0 4px 14px rgba(183, 28, 28, 0.28);
 }
