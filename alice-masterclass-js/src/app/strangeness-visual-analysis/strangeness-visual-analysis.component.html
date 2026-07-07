@@ -45,16 +45,20 @@
     </div>
   }
 
-  <div class="container" fxFlex="grow" fxLayoutGap="10px" fxLayout="column">
+  <div class="container" [class.va-dark-mode]="visualDarkMode" fxFlex="grow" fxLayoutGap="10px" fxLayout="column">
     <app-event-display
       [decaysShown]="true"
 
+      [backgroundColor]="visualDarkMode ? visualDarkBackgroundColor : visualLightBackgroundColor"
       [hasClusters]="event.clusters.length !== 0"
       [landscape]="(isLandscape$ | async)"
       [assemblyCoachHighlightAssetPath]="assemblyCoachHighlightPath"
       [detectorModel]="ALICE_DETECTOR_MODEL"
       [detectorRphi]="ALICE_DETECTOR_RPHI"
       [detectorRhoz]="ALICE_DETECTOR_RHOZ"
+      [showThemeToggle]="true"
+      [darkMode]="visualDarkMode"
+      (darkModeChange)="visualDarkMode = $event"
       [showProtonCollisionIntro]="eventID === 0"
       [event]="event"
       [previousEventButtonDisabled]="(eventID - 1) < 0"

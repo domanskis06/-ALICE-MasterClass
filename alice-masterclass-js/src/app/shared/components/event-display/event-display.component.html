@@ -24,6 +24,17 @@
         [(opened)]="detectorLayersPanelOpened" (openedChange)="detectorLayersPanelOpened = $event">
         <div class="detector-parts-panel">
           <h4>{{ 'EVENT_DISPLAY.DETECTOR_PARTS' | translate }}</h4>
+          @if (showThemeToggle) {
+            <div class="theme-toggle-row">
+              <mat-slide-toggle
+                [ngModel]="darkMode"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="darkModeChange.emit($event)"
+                aria-label="Toggle dark visual theme">
+                <mat-icon aria-hidden="true">dark_mode</mat-icon>
+              </mat-slide-toggle>
+            </div>
+          }
           <div fxLayout="column" fxLayoutGap="8px">
             @for (part of detectorPartsForUi; track part.assetPath) {
               <mat-slide-toggle [ngModel]="part.visible"

@@ -64,6 +64,12 @@ mat-card-title {
   }
 }
 
+.theme-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 12px;
+}
+
 .layers-toggle-button {
   flex-shrink: 0;
 }

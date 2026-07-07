@@ -1,0 +1,349 @@
+{
+  "communities": {
+    "0": [
+      "main",
+      "main_args",
+      "main_createwindow",
+      "main_serve"
+    ],
+    "1": [
+      "data_strangeness_part1_convert_events_c_tstring"
+    ],
+    "2": [
+      "data_strangeness_part2_generate_hints_c_tstring"
+    ],
+    "3": [
+      "directive"
+    ],
+    "4": [
+      "int_t"
+    ],
+    "5": [
+      "json"
+    ],
+    "6": [
+      "src_app_about_about_component_ts_component"
+    ],
+    "7": [
+      "src_app_about_about_module_ts_ngmodule"
+    ],
+    "8": [
+      "src_app_about_about_routing_module_ts_ngmodule"
+    ],
+    "9": [
+      "src_app_app_component_ts_component"
+    ],
+    "10": [
+      "src_app_app_module_ts_ngmodule"
+    ],
+    "11": [
+      "src_app_app_routing_module_ts_ngmodule"
+    ],
+    "12": [
+      "src_app_auth_dialog_auth_dialog_component_ts_component"
+    ],
+    "13": [
+      "src_app_auth_dialog_auth_dialog_component_ts_inject"
+    ],
+    "14": [
+      "src_app_core_core_module_ts_ngmodule"
+    ],
+    "15": [
+      "src_app_core_services_electron_electron_service_ts_injectable"
+    ],
+    "16": [
+      "src_app_home_home_component_ts_component"
+    ],
+    "17": [
+      "src_app_home_home_module_ts_ngmodule"
+    ],
+    "18": [
+      "src_app_home_home_routing_module_ts_ngmodule"
+    ],
+    "19": [
+      "src_app_instructions_dialog_instructions_dialog_component_ts_component"
+    ],
+    "20": [
+      "src_app_instructions_dialog_instructions_dialog_component_ts_inject"
+    ],
+    "21": [
+      "src_app_nav_nav_component_ts_component"
+    ],
+    "22": [
+      "src_app_nav_nav_component_ts_input"
+    ],
+    "23": [
+      "src_app_nav_nav_component_ts_viewchild"
+    ],
+    "24": [
+      "src_app_nav_nav_module_ts_ngmodule"
+    ],
+    "25": [
+      "src_app_select_dataset_dialog_select_dataset_dialog_component_ts_component"
+    ],
+    "26": [
+      "src_app_select_dataset_dialog_select_dataset_dialog_component_ts_inject"
+    ],
+    "27": [
+      "src_app_services_strangeness_data_service_ts_injectable"
+    ],
+    "28": [
+      "src_app_shared_angular_module_ts_ngmodule"
+    ],
+    "29": [
+      "src_app_shared_components_cern_toolbar_cern_toolbar_component_ts_component"
+    ],
+    "30": [
+      "src_app_shared_components_event_display_event_display_component_ts_component"
+    ],
+    "31": [
+      "src_app_shared_components_event_display_event_display_component_ts_hostbinding"
+    ],
+    "32": [
+      "src_app_shared_components_event_display_event_display_component_ts_input"
+    ],
+    "33": [
+      "src_app_shared_components_event_display_event_display_component_ts_output"
+    ],
+    "34": [
+      "src_app_shared_components_event_display_event_display_component_ts_viewchild"
+    ],
+    "35": [
+      "src_app_shared_components_fit_histogram_fit_histogram_component_ts_component"
+    ],
+    "36": [
+      "src_app_shared_components_fit_histogram_fit_histogram_component_ts_hostbinding"
+    ],
+    "37": [
+      "src_app_shared_components_fit_histogram_fit_histogram_component_ts_input"
+    ],
+    "38": [
+      "src_app_shared_components_fit_histogram_fit_histogram_component_ts_viewchild"
+    ],
+    "39": [
+      "src_app_shared_components_histogram_histogram_component_ts_component"
+    ],
+    "40": [
+      "src_app_shared_components_histogram_histogram_component_ts_hostbinding"
+    ],
+    "41": [
+      "src_app_shared_components_histogram_histogram_component_ts_input"
+    ],
+    "42": [
+      "src_app_shared_components_histogram_histogram_component_ts_output"
+    ],
+    "43": [
+      "src_app_shared_components_histogram_histogram_component_ts_viewchild"
+    ],
+    "44": [
+      "src_app_shared_components_page_not_found_page_not_found_component_ts_component"
+    ],
+    "45": [
+      "src_app_shared_components_spinner_container_spinner_container_component_ts_component"
+    ],
+    "46": [
+      "src_app_shared_components_spinner_container_spinner_container_component_ts_input"
+    ],
+    "47": [
+      "src_app_shared_services_api_service_ts_injectable"
+    ],
+    "48": [
+      "src_app_shared_services_fit_service_ts_injectable"
+    ],
+    "49": [
+      "src_app_shared_services_mock_api_service_ts_injectable"
+    ],
+    "50": [
+      "src_app_shared_shared_module_ts_ngmodule"
+    ],
+    "51": [
+      "src_app_strangeness_large_scale_analysis_fit_selector_fit_selector_component_ts_component"
+    ],
+    "52": [
+      "src_app_strangeness_large_scale_analysis_fit_selector_fit_selector_component_ts_input"
+    ],
+    "53": [
+      "src_app_strangeness_large_scale_analysis_fit_selector_fit_selector_component_ts_output"
+    ],
+    "54": [
+      "src_app_strangeness_large_scale_analysis_histogram_display_histogram_display_component_ts_component"
+    ],
+    "55": [
+      "src_app_strangeness_large_scale_analysis_histogram_display_histogram_display_component_ts_input"
+    ],
+    "56": [
+      "src_app_strangeness_large_scale_analysis_histogram_display_histogram_display_component_ts_output"
+    ],
+    "57": [
+      "src_app_strangeness_large_scale_analysis_histogram_selector_histogram_selector_component_ts_component"
+    ],
+    "58": [
+      "src_app_strangeness_large_scale_analysis_histogram_selector_histogram_selector_component_ts_input"
+    ],
+    "59": [
+      "src_app_strangeness_large_scale_analysis_histogram_selector_histogram_selector_component_ts_output"
+    ],
+    "60": [
+      "src_app_strangeness_large_scale_analysis_instructions_instructions_component_ts_component"
+    ],
+    "61": [
+      "src_app_strangeness_large_scale_analysis_results_results_component_ts_component"
+    ],
+    "62": [
+      "src_app_strangeness_large_scale_analysis_results_results_component_ts_input"
+    ],
+    "63": [
+      "src_app_strangeness_large_scale_analysis_results_results_component_ts_output"
+    ],
+    "64": [
+      "src_app_strangeness_large_scale_analysis_results_results_component_ts_viewchild"
+    ],
+    "65": [
+      "src_app_strangeness_large_scale_analysis_strangeness_large_scale_analysis_component_ts_component"
+    ],
+    "66": [
+      "src_app_strangeness_large_scale_analysis_strangeness_large_scale_analysis_module_ts_ngmodule"
+    ],
+    "67": [
+      "src_app_strangeness_large_scale_analysis_strangeness_large_scale_analysis_routing_module_ts_ngmodule"
+    ],
+    "68": [
+      "src_app_strangeness_visual_analysis_calculator_calculator_component_ts_component"
+    ],
+    "69": [
+      "src_app_strangeness_visual_analysis_calculator_calculator_component_ts_input"
+    ],
+    "70": [
+      "src_app_strangeness_visual_analysis_calculator_calculator_component_ts_output"
+    ],
+    "71": [
+      "src_app_strangeness_visual_analysis_instructions_instructions_component_ts_component"
+    ],
+    "72": [
+      "src_app_strangeness_visual_analysis_mass_histograms_mass_histograms_component_ts_component"
+    ],
+    "73": [
+      "src_app_strangeness_visual_analysis_mass_histograms_mass_histograms_component_ts_input"
+    ],
+    "74": [
+      "src_app_strangeness_visual_analysis_mass_histograms_mass_histograms_component_ts_output"
+    ],
+    "75": [
+      "src_app_strangeness_visual_analysis_particle_mass_particle_mass_component_ts_component"
+    ],
+    "76": [
+      "src_app_strangeness_visual_analysis_strangeness_visual_analysis_component_ts_component"
+    ],
+    "77": [
+      "src_app_strangeness_visual_analysis_strangeness_visual_analysis_module_ts_ngmodule"
+    ],
+    "78": [
+      "src_app_strangeness_visual_analysis_strangeness_visual_analysis_routing_module_ts_ngmodule"
+    ],
+    "79": [
+      "tevevsd"
+    ]
+  },
+  "cohesion": {
+    "0": 0.5,
+    "1": 1.0,
+    "2": 1.0,
+    "3": 1.0,
+    "4": 1.0,
+    "5": 1.0,
+    "6": 1.0,
+    "7": 1.0,
+    "8": 1.0,
+    "9": 1.0,
+    "10": 1.0,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0,
+    "31": 1.0,
+    "32": 1.0,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 1.0,
+    "36": 1.0,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0,
+    "41": 1.0,
+    "42": 1.0,
+    "43": 1.0,
+    "44": 1.0,
+    "45": 1.0,
+    "46": 1.0,
+    "47": 1.0,
+    "48": 1.0,
+    "49": 1.0,
+    "50": 1.0,
+    "51": 1.0,
+    "52": 1.0,
+    "53": 1.0,
+    "54": 1.0,
+    "55": 1.0,
+    "56": 1.0,
+    "57": 1.0,
+    "58": 1.0,
+    "59": 1.0,
+    "60": 1.0,
+    "61": 1.0,
+    "62": 1.0,
+    "63": 1.0,
+    "64": 1.0,
+    "65": 1.0,
+    "66": 1.0,
+    "67": 1.0,
+    "68": 1.0,
+    "69": 1.0,
+    "70": 1.0,
+    "71": 1.0,
+    "72": 1.0,
+    "73": 1.0,
+    "74": 1.0,
+    "75": 1.0,
+    "76": 1.0,
+    "77": 1.0,
+    "78": 1.0,
+    "79": 1.0
+  },
+  "gods": [
+    {
+      "id": "main_args",
+      "label": "args",
+      "degree": 1
+    },
+    {
+      "id": "main_serve",
+      "label": "serve",
+      "degree": 1
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `args`, `serve` to the rest of the system?",
+      "why": "2 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

@@ -65,6 +65,10 @@ export class StrangenessVisualAnalysisComponent implements OnInit, AfterViewInit
   particleNeg: Track = null;
   particleBac: Track = null;
 
+  visualDarkMode = false;
+  readonly visualLightBackgroundColor = 0xFFFFFF;
+  readonly visualDarkBackgroundColor = 0x020617;
+
   uploadDisabledDatasets: Array<Number> = [SelectDatasetDialogComponent.DEMO];
   
   isLandscape$: Observable<boolean>;

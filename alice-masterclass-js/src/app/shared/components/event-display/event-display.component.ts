@@ -170,6 +170,10 @@ export class EventDisplayComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  @Input() showThemeToggle = false;
+  @Input() darkMode = false;
+  @Output() darkModeChange: EventEmitter<boolean> = new EventEmitter<boolean>();
+
   private _showControls: boolean = true;
 
   @Input()
